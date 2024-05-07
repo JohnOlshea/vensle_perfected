@@ -11,20 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product_requests', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->unsignedBigInteger('category_id');
-            $table->decimal('price', 8, 2);
-            $table->string('address');
-            $table->string('phone_number');
-            $table->text('description');
-            $table->string('type');
-            $table->decimal('ratings', 2, 1)->nullable();
-            $table->integer('sold')->default(0);
-            $table->integer('views')->default(0);
-            $table->timestamps();
-        });
+        Schema::create(
+            'product_requests', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->unsignedBigInteger('category_id');
+                $table->decimal('price', 8, 2);
+                $table->string('address');
+                $table->string('phone_number');
+                $table->text('description');
+                $table->string('type');
+                $table->decimal('ratings', 2, 1)->nullable();
+                $table->integer('sold')->default(0);
+                $table->integer('views')->default(0);
+                $table->timestamps();
+            }
+        );
     }
 
     /**

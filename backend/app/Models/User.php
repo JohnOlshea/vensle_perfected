@@ -22,10 +22,12 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-	'address',
-	'phone_number',
-	'profile_picture',
-	'provider_id',
+        'address',
+        'phone_number',
+        'profile_picture',
+        'provider_id',
+	'notification_preferences',
+	'role_id',
     ];
 
     /**
@@ -46,6 +48,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+	'notification_preferences' => 'array',
     ];
 
     /**
@@ -56,15 +59,77 @@ class User extends Authenticatable
         return $this->hasMany(Product::class);
     }
 
+    /**
+     * Define the relationship between User and SavedProduct.
+     */
+    public function savedProducts()
+    {
+	return $this->hasMany(SavedProduct::class);
+    }    
+    
     public function userAlerts()
     {
         return $this->hasMany(UserAlert::class);
+    }
+
+    public function businessDetails()
+    {
+        return $this->hasOne(BusinessDetails::class);
+    }
+
+    public function feedback()
+    {
+        return $this->hasMany(Feedback::class);
+    }
+
+    public function carts()
+    {
+        return $this->hasMany(Cart::class);
+    }
+
+    public function updateNotificationPreference($type, $value)
+    {
+        $notificationPreferences = $this->notification_preferences ?? [];
+        $notificationPreferences[$type] = $value;
+        $this->notification_preferences = $notificationPreferences;
+        $this->save();
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
     }    
 
-public function businessDetails()
-{
-    return $this->hasOne(BusinessDetails::class);
-}
+    public function wantsNotification($type)
+    {
+        return isset($this->notification_preferences[$type]) ? $this->notification_preferences[$type] : false;
+    }    
+
+	public function createAlertIfEnabled($title, $message, $preferenceName, $url = null)
+	{
+	    if ($this->wantsNotification($preferenceName)) {
+		$data = [
+		    'title' => $title,
+		    'message' => $message,
+		];
+
+		if ($url !== null && $url !== '') {
+		    $data['url'] = $url;
+		}
+
+		$this->userAlerts()->create($data);
+	    }
+	}
+
+    /*public function createAlertIfEnabled($title, $message, $preferenceName)
+    {
+        if ($this->wantsNotification($preferenceName)) {
+            $this->userAlerts()->create([
+                'title' => $title,
+                'message' => $message,
+            ]);
+        }
+    }*/   
 
     /*
     public function notifications()
@@ -79,5 +144,5 @@ public function businessDetails()
         return $this->morphMany(DatabaseNotification::class, 'notifiable')
             ->orderBy('created_at', 'desc');
     }
-     */    
+     */
 }

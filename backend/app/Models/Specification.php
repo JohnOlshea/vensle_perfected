@@ -17,22 +17,22 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Specification extends Model
 {
-	use HasFactory;
+    use HasFactory;
 
-	/**
-	* The attributes that are mass assignable.
-	*
-	* @var array
-	*/
-	protected $fillable = ['name'];
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = ['name'];
 
-	/**
-	* Get the products associated with the specification.
-	*
-	* @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-	*/
-	public function products()
-	{
-		return $this->belongsToMany(Product::class, 'product_specification');
-	}
+    /**
+     * Get the products associated with the specification.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'product_specification');
+    }
 }

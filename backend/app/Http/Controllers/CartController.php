@@ -9,7 +9,22 @@ use App\Models\Cart;
 class CartController extends Controller
 {
 
+    public function index()
+    {
+	    $user = auth()->user();
+	    $cartItems = $user->carts()->with('product.displayImage')->get();
 
+	    $responseData = [];
+	    foreach ($cartItems as $item) {
+		$product = $item->product;
+		if ($product) {
+		    $product->quantity = $item->quantity;
+		    $responseData[] = $item;
+		}
+	    }
+
+	    return response()->json(['cart' => $responseData]);	    
+    }
 
     public function mergeCart(Request $request)
     {
@@ -28,7 +43,7 @@ class CartController extends Controller
             }
 
             // Extract product_id and quantity from the item
-            $product_id = $item['product_id'];
+            $product_id = $item['id'];
             $quantity = $item['quantity'];
 
             // Check if the item exists in the user's cart
@@ -37,15 +52,18 @@ class CartController extends Controller
                 ->first();
 
             if ($existingCartItem) {
+                $new_quantity = $existingCartItem->quantity + $quantity;
                 // If the item exists, update the quantity
-                $existingCartItem->update(['quantity' => $quantity]);
+                $existingCartItem->update(['quantity' => $new_quantity]);
             } else {
                 // If the item doesn't exist, add it to the cart
-                Cart::create([
+                Cart::create(
+                    [
                     'user_id' => $user_id,
                     'product_id' => $product_id,
                     'quantity' => $quantity,
-                ]);
+                    ]
+                );
             }
         }
 
@@ -62,20 +80,22 @@ class CartController extends Controller
 
     public function addToCart(Request $request)
     {
-        $productId = $request->input('productId');
+        $productId = $request->input('id');
         $quantity = $request->input('quantity');
 
-        $user = auth()->user();
 
-        $cartItem = $user->cart()->where('product_id', $productId)->first();
+        $user = auth()->user();
+        $cartItem = $user->carts()->where('product_id', $productId)->first();
 
         if ($cartItem) {
             $cartItem->update(['quantity' => $cartItem->quantity + $quantity]);
         } else {
-            $cartItem = $user->cart()->create([
+            $cartItem = $user->carts()->create(
+                [
                 'product_id' => $productId,
                 'quantity' => $quantity,
-            ]);
+                ]
+            );
         }
 
         return response()->json(['message' => 'Item added to cart successfully', 'cartItem' => $cartItem]);
@@ -87,7 +107,7 @@ class CartController extends Controller
 
         $user = auth()->user();
 
-        $user->cart()->where('product_id', $productId)->delete();
+        $user->carts()->where('product_id', $productId)->delete();
 
         return response()->json(['message' => 'Item removed from cart successfully', 'cartItem' => null]);
     }
@@ -99,7 +119,7 @@ class CartController extends Controller
 
         $user = auth()->user();
 
-        $user->cart()->where('product_id', $productId)->update(['quantity' => $quantity]);
+        $user->carts()->where('product_id', $productId)->update(['quantity' => $quantity]);
 
         return response()->json(['message' => 'Cart updated successfully', 'cartItem' => null]);
     }
@@ -108,46 +128,47 @@ class CartController extends Controller
     {
         $user = auth()->user();
 
-        $user->cart()->delete();
+        $user->carts()->delete();
 
         return response()->json(['message' => 'Cart cleared successfully', 'cartItem' => null]);
     }
-    
 
 
 
 
-public function mergeCarts(Request $request)
-{
-    $user = auth()->user();
+    //Legacy
+    public function mergeCarts(Request $request)
+    {
+        $user = auth()->user();
 
-    // Assume $request->input('unauthenticatedCart') is an array of cart items
-    $unauthenticatedCart = $request->input('unauthenticatedCart');
+        // Assume $request->input('unauthenticatedCart') is an array of cart items
+        $unauthenticatedCart = $request->input('unauthenticatedCart');
 
-    foreach ($unauthenticatedCart as $cartItem) {
-        $existingCartItem = $user->cart()->where('product_id', $cartItem['product_id'])->first();
+        foreach ($unauthenticatedCart as $cartItem) {
+            $existingCartItem = $user->cart()->where('product_id', $cartItem['product_id'])->first();
 
-        if ($existingCartItem) {
-            // Update quantity if the product is already in the cart
-            $existingCartItem->update(['quantity' => $existingCartItem->quantity + $cartItem['quantity']]);
-        } else {
-            // Otherwise, create a new cart item
-            $user->cart()->create([
-                'product_id' => $cartItem['product_id'],
-                'quantity' => $cartItem['quantity'],
-            ]);
+            if ($existingCartItem) {
+                // Update quantity if the product is already in the cart
+                $existingCartItem->update(['quantity' => $existingCartItem->quantity + $cartItem['quantity']]);
+            } else {
+                // Otherwise, create a new cart item
+                $user->cart()->create(
+                    [
+                    'product_id' => $cartItem['product_id'],
+                    'quantity' => $cartItem['quantity'],
+                    ]
+                );
+            }
         }
+
+        // Return the updated cart along with a success message
+        $mergedCart = $user->cart()->get();
+
+        return response()->json(['message' => 'Carts merged successfully', 'cart' => $mergedCart]);
     }
 
-    // Return the updated cart along with a success message
-    $mergedCart = $user->cart()->get();
-
-    return response()->json(['message' => 'Carts merged successfully', 'cart' => $mergedCart]);
-}
-   
 
 
 
 
 }
-

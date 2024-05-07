@@ -34,28 +34,32 @@ class PasswordResetController extends Controller
             return response()->json(['message' => 'Password reset token generated successfully', 'token' => $token]);
         } catch (\Exception $e) {
             //return response()->json(['error' => 'Failed to generate password reset token.'], 500);
-        return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
     public function reset(Request $request)
     {
         try {
-            $request->validate([
+            $request->validate(
+                [
                 'email' => 'required|email',
                 'token' => 'required|string',
                 'password' => 'required|string|confirmed',
-            ]);
+                ]
+            );
 
-	    
+
 
             $status = Password::reset(
                 $request->only('email', 'password', 'password_confirmation', 'token'),
                 function ($user, $password) {
-                    $user->forceFill([
+                    $user->forceFill(
+                        [
                         'password' => bcrypt($password),
                         'remember_token' => \Illuminate\Support\Str::random(60),
-                    ])->save();
+                        ]
+                    )->save();
                 }
             );
 
@@ -68,4 +72,3 @@ class PasswordResetController extends Controller
         }
     }
 }
-

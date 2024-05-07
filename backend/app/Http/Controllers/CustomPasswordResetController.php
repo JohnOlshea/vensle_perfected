@@ -31,11 +31,13 @@ class CustomPasswordResetController extends Controller
 
     public function resetPassword(Request $request)
     {
-        $request->validate([
+        $request->validate(
+            [
             'email' => 'required|email',
             'token' => 'required|string',
             'password' => 'required|string|confirmed',
-        ]);
+            ]
+        );
 
         $passwordReset = CustomPasswordReset::where('email', $request->email)
             ->where('token', $request->token)
@@ -60,4 +62,3 @@ class CustomPasswordResetController extends Controller
         return response()->json(['message' => 'Password reset successfully']);
     }
 }
-

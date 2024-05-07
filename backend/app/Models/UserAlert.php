@@ -9,7 +9,7 @@ class UserAlert extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'title', 'message', 'read'];
+    protected $fillable = ['user_id', 'title', 'message', 'url', 'read'];
 
     public function user()
     {

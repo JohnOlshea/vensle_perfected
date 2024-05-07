@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 class ProductFactory extends Factory
 {
     protected $model = Product::class;
-    
+
     /**
      * Define the model's default state.
      *
@@ -38,28 +38,28 @@ class ProductFactory extends Factory
             'views' => $this->faker->numberBetween(0, 100),
             'status' => $this->faker->randomElement(['Active', 'Inactive']),
         ];
-/**
-        return [
-            'name' => $this->faker->word,
-	    'category_id' => function () {
-                return \App\Models\Category::factory()->create()->id;
-            },
-            'condition' => $this->faker->randomElement(['New', 'Fairly Used', 'N/A']),
-            'price' => $this->faker->randomFloat(2, 10, 1000),
-            'address' => $this->faker->address,
-            'phone_number' => $this->faker->phoneNumber,
-            'description' => $this->faker->sentence,
-            'type' => $this->faker->word,
-            'ratings' => $this->faker->randomFloat(1, 1, 5),
-            'quantity' => $this->faker->numberBetween(1, 100),
-            'sold' => $this->faker->numberBetween(0, 50),
-            'views' => $this->faker->numberBetween(0, 100),
-            'status' => $this->faker->randomElement(['Active', 'Inactive']),
-            //'specifications' => function () {
-            //    return \App\Models\Specification::factory()->create()->id;
-            //},
-	];
- */
+        /**
+                return [
+                    'name' => $this->faker->word,
+             'category_id' => function () {
+                        return \App\Models\Category::factory()->create()->id;
+                    },
+                    'condition' => $this->faker->randomElement(['New', 'Fairly Used', 'N/A']),
+                    'price' => $this->faker->randomFloat(2, 10, 1000),
+                    'address' => $this->faker->address,
+                    'phone_number' => $this->faker->phoneNumber,
+                    'description' => $this->faker->sentence,
+                    'type' => $this->faker->word,
+                    'ratings' => $this->faker->randomFloat(1, 1, 5),
+                    'quantity' => $this->faker->numberBetween(1, 100),
+                    'sold' => $this->faker->numberBetween(0, 50),
+                    'views' => $this->faker->numberBetween(0, 100),
+                    'status' => $this->faker->randomElement(['Active', 'Inactive']),
+                    //'specifications' => function () {
+                    //    return \App\Models\Specification::factory()->create()->id;
+                    //},
+         ];
+         */
     }
 
     /**
@@ -69,10 +69,12 @@ class ProductFactory extends Factory
      */
     public function withSpecifications(): self
     {
-        return $this->afterCreating(function (Product $product) {
-            $product->specifications()->attach(
-                \App\Models\Specification::factory()->create()->id
-            );
-        });
+        return $this->afterCreating(
+            function (Product $product) {
+                $product->specifications()->attach(
+                    \App\Models\Specification::factory()->create()->id
+                );
+            }
+        );
     }
 }

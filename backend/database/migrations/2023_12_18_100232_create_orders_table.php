@@ -11,12 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('orders', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained();
-            $table->string('stripe_session_id')->nullable();	    
-            $table->timestamps();
-        });
+        Schema::create(
+            'orders', function (Blueprint $table) {
+                $table->id();
+		//TODO:?->onDelete('cascade');
+                $table->foreignId('user_id')->constrained();
+		$table->foreignId('driver_id')->nullable()->constrained('users');
+                $table->string('stripe_session_id')->nullable();
+		$table->enum('payment_method', ['pay_on_delivery', 'stripe'])->default('stripe');
+                $table->boolean('paid')->default(false);
+		$table->enum('status', ['Inactive', 'Ongoing', 'Pending', 'Processing', 'Completed', 'Cancelled'])->default('Inactive');
+                $table->decimal('total_price', 8, 2);
+                $table->timestamps();
+            }
+        );
     }
 
     /**

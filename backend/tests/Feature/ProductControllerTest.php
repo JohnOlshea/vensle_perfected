@@ -24,16 +24,19 @@ class ProductControllerTest extends TestCase
         Artisan::call('migrate');
     }
 
-    /** @test */
+    /**
+     * @test
+     */
     public function it_can_create_a_product()
     {
         $response = $this->json('POST', '/api/products', $this->productData());
-dump($response->getContent());
+        dump($response->getContent());
         $response->assertStatus(201)
-            ->assertJsonStructure([
+            ->assertJsonStructure(
+                [
                 'id',
-		'name',
-		'category_id',
+                'name',
+                'category_id',
                 'condition',
                 'price',
                 'address',
@@ -43,20 +46,24 @@ dump($response->getContent());
                 'status',
                 'created_at',
                 'updated_at',
-            ]);
+                ]
+            );
     }
 
-    /** @test */
+    /**
+     * @test
+     */
     public function it_can_update_a_product()
     {
         $product = Product::factory()->create();
         $response = $this->json('PUT', "/api/products/{$product->id}", $this->productData());
 
         $response->assertStatus(200)
-            ->assertJsonStructure([
+            ->assertJsonStructure(
+                [
                 'id',
-		'name',
-		'category_id',
+                'name',
+                'category_id',
                 'condition',
                 'price',
                 'address',
@@ -66,10 +73,13 @@ dump($response->getContent());
                 'status',
                 'created_at',
                 'updated_at',
-            ]);
+                ]
+            );
     }
 
-    /** @test */
+    /**
+     * @test
+     */
     public function it_can_show_a_product()
     {
         $product = Product::factory()->create();
@@ -77,14 +87,18 @@ dump($response->getContent());
         $response = $this->json('GET', "/api/products/{$product->id}");
 
         $response->assertStatus(200)
-            ->assertJson([
+            ->assertJson(
+                [
                 'id' => $product->id,
                 'name' => $product->name,
                 // TODO: add more fields
-            ]);
+                ]
+            );
     }
 
-    /** @test */
+    /**
+     * @test
+     */
     public function it_can_delete_a_product()
     {
         $product = Product::factory()->create();
@@ -106,7 +120,7 @@ dump($response->getContent());
      */
     private function productData()
     {
-	$category = Category::factory()->create(); 
+        $category = Category::factory()->create();
 
         return [
             'name' => $this->faker->word,
@@ -117,9 +131,8 @@ dump($response->getContent());
             'description' => $this->faker->paragraph,
             'type' => 'Some Type',
             'status' => 'Active',
-	    'category_id' => $category->id,
+            'category_id' => $category->id,
             'specification_ids' => [2, 3],
         ];
     }
 }
-

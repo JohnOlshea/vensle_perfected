@@ -10,33 +10,38 @@ use Exception;
 
 class FacebookController extends Controller
 {
-	public function facebookpage()
-	{
-		return Socialite::driver('facebook')->stateless()->redirect();
-	}
-	public function facebookredirect()
-	{
-		try {
-			$user = Socialite::driver('facebook')->stateless()->user();
+    public function facebookpage()
+    {
+        return Socialite::driver('facebook')->stateless()->redirect();
+    }
 
-			$finduser = User::where('provider_id', $user->id)->first();
+    public function facebookredirect()
+    {
+        try {
+            $user = Socialite::driver('facebook')->stateless()->user();
 
-			if($finduser) {
-                    		$token = $finduser->createToken('API Auth Token')->accessToken;
-                    		return response()->json(['user' => $finduser, 'token' => $token], 200);
-			}else {
-				$newUser = User::updateOrCreate(['email' => $user->email], [
-					'name' => $user->name,
-					'provider_id' => $user->id,
-					'profile_picture' => $user->avatar,
-					'password' => encrypt('123456dummy')
-				]);
-                    		$token = $newUser->createToken('API Auth Token')->accessToken;
+            $finduser = User::where('provider_id', $user->id)->first();
 
-                    		return response()->json(['user' => $newUser, 'token' => $token], 200);
-		        }
-		} catch (Exception $e) {
-		    return response()->json(['error' => $e->getMessage()], 500);
-		}
-	}
+            if ($finduser) {
+                $token = $finduser->createToken('API Auth Token')->accessToken;
+                $redirectUrl = 'https://nominet.vensle.com/social-auth-redirect?token=' . $token . '&user=' . json_encode($finduser);
+                return redirect($redirectUrl);
+            } else {
+                $newUser = User::updateOrCreate(
+                    ['email' => $user->email], [
+                    'name' => $user->name,
+                    'provider_id' => $user->id,
+                    'profile_picture' => $user->avatar,
+                    'password' => encrypt('123456dummy')
+                    ]
+                );
+                $token = $newUser->createToken('API Auth Token')->accessToken;
+
+                $redirectUrl = 'https://nominet.vensle.com/social-auth-redirect?token=' . $token . '&user=' . json_encode($newUser);
+                return redirect($redirectUrl);
+            }
+        } catch (Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

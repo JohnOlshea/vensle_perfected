@@ -11,14 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('user_alerts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained();
-            $table->string('title');
-            $table->text('message');
-            $table->boolean('read')->default(false);	    
-            $table->timestamps();
-        });
+        Schema::create(
+            'user_alerts', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained();
+                $table->string('title');
+                $table->text('message');
+		$table->string('url')->nullable();
+                $table->boolean('read')->default(false);
+                $table->timestamps();
+            }
+        );
     }
 
     /**

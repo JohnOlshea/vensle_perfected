@@ -11,16 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('images', function (Blueprint $table) {
-            $table->id();
-	    $table->string('name');
-            $table->string('extension');
-            $table->unsignedBigInteger('product_id');
-	    $table->timestamps();
+        Schema::create(
+            'images', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('extension');
+                $table->unsignedBigInteger('product_id');
+                $table->timestamps();
 
-            $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
+                $table->foreign('product_id')->references('id')->on('products')->onDelete('cascade');
 
-        });
+            }
+        );
     }
 
     /**

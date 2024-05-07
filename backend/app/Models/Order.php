@@ -11,7 +11,12 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+	'driver_id',
         'stripe_session_id',
+        'payment_method',
+	'paid',
+        'status',
+        'total_price',
     ];
 
     /**
@@ -24,14 +29,21 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the products associated with the order.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-     */
-    public function products()
+    public function items()
     {
-        return $this->belongsToMany(Product::class)->withTimestamps();
+        return $this->hasMany(OrderItem::class);
     }
 
+    public function orderTrails()
+    {
+        return $this->hasMany(OrderTrail::class);
+    }    
+
+    /**
+     * Define a relationship to products based on product_ids array.
+     */
+    //public function products()
+    //{
+        //return Product::whereIn('id', json_decode($this->product_ids))->get();
+    //}
 }

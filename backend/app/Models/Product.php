@@ -31,64 +31,96 @@ use App\Models\Category;
  */
 class Product extends Model
 {
-	use HasFactory;
+    use HasFactory;
 
-	/**
-	* The attributes that are mass assignable.
-	*
-	* @var array
-	*/
-	protected $fillable = [
-		'name', 'category_id', 'condition', 'price', 'address', 'phone_number', 'description', 'type', 'key_specifications', 'status', 'ratings', 'quantity', 'sold', 'views', 'latitude', 'longitude', 'display_image_id', 'user_id',
-	];
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+    'name', 'category_id', 'subcategory_id', 'condition', 'price', 'discount', 'address', 'phone_number', 'description', 'type', 'key_specifications', 'status', 'ratings', 'product_quantity', 'sold', 'views', 'latitude', 'longitude', 'display_image_id', 'city', 'currency', 'country', 'user_id', 'deleted'
+    ];
 
-	/**
-	* Get the user who owns the product.
-	*
-	* @return BelongsTo
-	*/
-	public function user()
-	{
-		return $this->belongsTo(User::class);
-	}
+    /**
+     * Get the user who owns the product.
+     *
+     * @return BelongsTo
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
-	/**
-	* Get the categories associated with the product.
-	*
-	* @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-	*/
-	public function category()
-	{
-		return $this->belongsTo(Category::class);
-	}
+    /**
+     * Get the categories associated with the product.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
 
-	/**
-	* Get the specifications associated with the product.
-	*
-	* @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-	*/
-	public function specifications()
-	{
-		return $this->belongsToMany(Specification::class, 'product_specification');
-	}
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
+    }
+
+    /**
+     * Get the specifications associated with the product.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
+     */
+    public function specifications()
+    {
+        return $this->belongsToMany(Specification::class, 'product_specification');
+    }
 
     /**
      * Get the orders associated with the product.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function orders()
+    public function order_items()
     {
-        return $this->belongsToMany(Order::class)->withTimestamps();
+        return $this->belongsToMany(OrderItem::class)->withTimestamps();
     }
 
-    	public function images()
-    	{
-        	return $this->hasMany(Image::class);
-    	}
+    public function images()
+    {
+        return $this->hasMany(Image::class);
+    }
 
-    	public function displayImage()
-	{
-        	return $this->belongsTo(Image::class, 'display_image_id');
-    	}	
+    public function displayImage()
+    {
+        return $this->belongsTo(Image::class, 'display_image_id');
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(Message::class);
+    }
+
+    public function feedback()
+    {
+        return $this->hasMany(Feedback::class);
+    }
+
+    /**
+     * Get the total number of feedback for this product.
+     *
+     * @return int
+     */
+    public function getTotalFeedbackAttribute()
+    {
+        return $this->feedback()->count();
+    }
+
+    /**
+     * Append the total feedback count to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['total_feedback'];
 }

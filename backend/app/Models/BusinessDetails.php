@@ -11,18 +11,18 @@ class BusinessDetails extends Model
 
     protected $fillable = [
         'user_id',
-        'email',
         'business_name',
-        'address',
-        'phone_number',
-	'bank_name',
-	'account_number',
-	'documentation',
-	'profile_picture',
+        'business_email',
+        'phone',
+        'business_address',
+        'certificate',
+        'bank_name',
+        'account_number',
+        'profile_picture',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
-    }    
+    }
 }
