@@ -14,6 +14,7 @@ class Order extends Model
 	'driver_id',
         'stripe_session_id',
         'payment_method',
+	'proof_type',
 	'paid',
         'status',
         'total_price',
@@ -38,6 +39,14 @@ class Order extends Model
     {
         return $this->hasMany(OrderTrail::class);
     }    
+
+    /**
+     * Get the driver activities associated with the order.
+     */
+    public function driverActivities()
+    {
+        return $this->hasMany(OrderDriverActivity::class);
+    }
 
     /**
      * Define a relationship to products based on product_ids array.

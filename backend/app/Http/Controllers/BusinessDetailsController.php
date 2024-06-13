@@ -69,52 +69,57 @@ class BusinessDetailsController extends Controller
     }
 
 
-    /*
     public function update(Request $request)
     {
-    try {
-        $user = auth()->user();
-        $businessDetails = $user->businessDetails;
+	    try {
+		$user = auth()->user();
+		$businessDetails = $user->businessDetails;
 
-        // Check if businessDetails exists, if not, create a new entry
-        if (!$businessDetails) {
-            $businessDetails = new BusinessDetails();
-            $businessDetails->user_id = $user->id;
-        }
+		// Check if businessDetails exists, if not, create a new entry
+		if (!$businessDetails) {
+		    $businessDetails = new BusinessDetails();
+		    $businessDetails->user_id = $user->id;
+		}
 
-        $request->validate([
-            'business_name' => 'sometimes|required|string',
-            'business_email' => 'sometimes|unique:business_details,business_email,' . $businessDetails->id . '|nullable|email',
-            'phone' => 'sometimes|required|string',
-            'business_address' => 'sometimes|required|string',
-            'bank_name' => 'sometimes|required|string',
-            'account_number' => 'sometimes|required|string',
-            'certificate' => 'nullable|mimes:jpeg,jpg,png,pdf,doc,docx',
-            'profile_picture' => 'nullable|image|mimes:jpeg,jpg,png|max:2048',
-        ]);
+		$rules = [
+		    'business_name' => 'sometimes|required|string',
+		    'business_email' => 'sometimes|unique:business_details,business_email,' . $businessDetails->id . '|nullable|email',
+		    'phone' => 'sometimes|required|string',
+		    'business_address' => 'sometimes|required|string',
+		    'bank_name' => 'sometimes|required|string',
+		    'account_number' => 'sometimes|required|string',
+		];
 
-        // Handle file uploads
-        if ($request->hasFile('certificate')) {
-            $this->deleteFileIfExists($businessDetails->certificate);
-            $certificate = $this->uploadFile($request->file('certificate'));
-            $businessDetails->certificate = $certificate;
-        }
+		if ($request->hasFile('certificate') && !is_string($request->input('certificate'))) {
+			$rules['certificate'] = 'nullable|mimes:jpeg,jpg,png,pdf,doc,docx';
+		}
 
-        if ($request->hasFile('profile_picture')) {
-            $this->deleteFileIfExists($businessDetails->profile_picture);
-            $profilePicture = $this->uploadFile($request->file('profile_picture'));
-            $businessDetails->profile_picture = $profilePicture;
-        }
+		if ($request->hasFile('profile_picture') && !is_string($request->input('profile_picture'))) {
+			$rules['profile_picture'] = 'nullable|image|mimes:jpeg,jpg,png|max:2048';
+		}
 
-        // Update other fields
-        $businessDetails->update($request->except(['certificate', 'profile_picture']));
+		$request->validate($rules);
 
-        return response()->json(['message' => 'Business details updated successfully', 'data' => $businessDetails]);
-    } catch (\Exception $e) {
-        return response()->json(['error' => $e->getMessage()], 500);
+		if ($request->hasFile('certificate') && !is_string($request->input('certificate'))) {
+		    $this->deleteFileIfExists("uploads/business/" . $businessDetails->certificate);
+		    $certificate = $this->uploadFile($request->file('certificate'));
+		    $businessDetails->certificate = $certificate;
+		}
+
+		if ($request->hasFile('profile_picture') && !is_string($request->input('profile_picture'))) {
+		    $this->deleteFileIfExists("uploads/business/" . $businessDetails->profile_picture);
+		    $profilePicture = $this->uploadFile($request->file('profile_picture'));
+		    $businessDetails->profile_picture = $profilePicture;
+		}
+
+		// Update other fields
+		$businessDetails->update($request->except(['certificate', 'profile_picture']));
+
+		return response()->json(['message' => 'Business details updated successfully', 'data' => $businessDetails]);
+	    } catch (\Exception $e) {
+		return response()->json(['error' => $e->getMessage()], 500);
+	    }
     }
-    }
-    */
 
     private function deleteFileIfExists($filePath)
     {
@@ -127,12 +132,12 @@ class BusinessDetailsController extends Controller
     {
         $extension = $file->getClientOriginalExtension();
         $imageName = Str::random(32) . "." . $extension;
-        $file->move('uploads/', $imageName);
+        $file->move('uploads/business/', $imageName);
 
-        return 'uploads/' . $imageName;
+        return $imageName;
     }
 
-    public function update(Request $request)
+    /*public function update(Request $request)
     {
         try {
             $user = auth()->user();
@@ -189,7 +194,7 @@ class BusinessDetailsController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
-    }
+    }*/
 
 
 

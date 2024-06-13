@@ -80,6 +80,11 @@ class CartController extends Controller
 
     public function addToCart(Request $request)
     {
+        $request->validate([
+            'id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
         $productId = $request->input('id');
         $quantity = $request->input('quantity');
 
@@ -107,9 +112,13 @@ class CartController extends Controller
 
         $user = auth()->user();
 
-        $user->carts()->where('product_id', $productId)->delete();
+    	$deletedRows = $user->carts()->where('product_id', $productId)->delete();
 
-        return response()->json(['message' => 'Item removed from cart successfully', 'cartItem' => null]);
+    	if ($deletedRows > 0) {
+            return response()->json(['message' => 'Item removed from cart successfully', 'cartItem' => null], 200);
+    	} else {
+            return response()->json(['message' => 'Item not found in cart/could not be removed'], 404);
+     	}	
     }
 
     public function updateCart(Request $request)

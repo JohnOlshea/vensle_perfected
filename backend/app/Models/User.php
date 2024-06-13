@@ -72,6 +72,11 @@ class User extends Authenticatable
         return $this->hasMany(UserAlert::class);
     }
 
+    public function driverDetail()
+    {
+        return $this->hasOne(DriverDetail::class);
+    }    
+
     public function businessDetails()
     {
         return $this->hasOne(BusinessDetails::class);
@@ -86,6 +91,22 @@ class User extends Authenticatable
     {
         return $this->hasMany(Cart::class);
     }
+
+    /**
+     * Get the orders associated with the driver.
+     */
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'driver_id');
+    }
+
+    /**
+     * Get the driver activities associated with the driver.
+     */
+    public function driverActivities()
+    {
+        return $this->hasMany(OrderDriverActivity::class, 'driver_id');
+    }    
 
     public function updateNotificationPreference($type, $value)
     {
@@ -120,6 +141,17 @@ class User extends Authenticatable
 		$this->userAlerts()->create($data);
 	    }
 	}
+
+    public function messages()
+    {
+      return $this->hasMany(Message::class); // User can have many messages
+    }
+
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
 
     /*public function createAlertIfEnabled($title, $message, $preferenceName)
     {

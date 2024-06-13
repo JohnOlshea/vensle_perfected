@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 
 class ReplyController extends Controller
 {
-    public function store(Request $request, $messageId)
+    public function store(Request $request, int $messageId)
     {
         $validator = Validator::make($request->all(), [
             'content' => 'required',
@@ -37,7 +37,7 @@ class ReplyController extends Controller
 	// Send alert to user
 	UserAlert::create([
 	    'user_id' => $user->id,
-	    'title' => 'You hav a new message',
+	    'title' => 'You have a new message',
 	    'message' => $reply->content,
 	]);	
 

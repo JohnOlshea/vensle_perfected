@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
-use App\Models\SubCategory;
+use App\Models\Subcategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -15,11 +15,55 @@ class CategoryController extends Controller
         return response()->json(['categories' => $categories]);
     }
 
+    public function getSubcategories()
+    {
+        $subcategories = Subcategory::with(['category'])->get();
+        return response()->json(['subcategories' => $subcategories]);
+    }
+    
 	public function getCategorySubcategories(Category $category)
 	{
 	    $subcategories = $category->subcategories;
 	    return response()->json($subcategories);
-	}    
+	}
+
+    /**
+     * Get all products belonging to a specific category.
+     *
+     * @param int $category
+     * @return \Illuminate\Http\Response
+     */
+    public function productsByCategory($category)
+    {
+	try {
+            $category = Category::findOrFail($category);
+
+            $products = $category->products()->with(['images', 'displayImage', 'subcategory', 'category', 'user'])->get();
+
+            return response()->json(['products' => $products], 200);
+	} catch (\Exception $e) {
+	    return response()->json(['error' => $e->getMessage()], 500);
+	}	
+    }
+
+    /**
+     * Get all products belonging to a specific subcategory.
+     *
+     * @param int $subcategory
+     * @return \Illuminate\Http\Response
+     */
+    public function productsBySubcategory($subcategory)
+    {
+	    try {
+		$subcategory = Subcategory::findOrFail($subcategory);
+		
+		$products = $subcategory->products()->with(['images', 'displayImage', 'subcategory', 'category', 'user'])->get();
+		
+		return response()->json(['products' => $products], 200);
+	    } catch (\Exception $e) {
+		return response()->json(['error' => $e->getMessage()], 500);
+	    }	
+    }
 
     public function store(Request $request)
     {
@@ -137,7 +181,7 @@ public function destroy(Category $category)
     } catch (ModelNotFoundException $e) {
         return response()->json(['error' => 'Category not found'], 404);
     } catch (\Exception $e) {
-        Log::error('Error deleting category: ' . $e->getMessage());
+        //Log::error('Error deleting category: ' . $e->getMessage());
         return response()->json(['error' => 'Internal Server Error'], 500);
     }	
 }

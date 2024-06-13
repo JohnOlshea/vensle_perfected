@@ -18,6 +18,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('receiver_id');
                 $table->unsignedBigInteger('product_id')->nullable();
                 $table->text('content');
+		$table->boolean('is_read')->default(false);
                 $table->timestamps();
 
                 $table->foreign('sender_id')->references('id')->on('users');

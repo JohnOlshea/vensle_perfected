@@ -51,9 +51,13 @@ class AuthSocialiteController extends Controller
                 $token = $newUser->createToken('AppName')->accessToken;
             }
 
-                    // Use $newUser if it was created, or $user if it already existed
-            $redirectUrl = 'https://nominet.vensle.com/social-auth-redirect?token=' . $token . '&user=' . json_encode($user ?: $newUser);
-            return redirect($redirectUrl);
+            // Use $newUser if it was created, or $user if it already existed
+            //$redirectUrl = 'https://nominet.vensle.com/social-auth-redirect?token=' . $token . '&user=' . json_encode($user ?: $newUser);
+            //return redirect($redirectUrl);
+	    return response()->json([
+                'token' => $token,
+                'user' => $user ?: $newUser,
+            ], 200);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

@@ -19,6 +19,9 @@ return new class extends Migration
 		$table->foreignId('driver_id')->nullable()->constrained('users');
                 $table->string('stripe_session_id')->nullable();
 		$table->enum('payment_method', ['pay_on_delivery', 'stripe'])->default('stripe');
+		$table->enum('proof_type', ['code', 'picture'])->default('picture');
+		$table->string('delivery_code')->nullable();
+        	$table->string('delivery_proof_image')->nullable();
                 $table->boolean('paid')->default(false);
 		$table->enum('status', ['Inactive', 'Ongoing', 'Pending', 'Processing', 'Completed', 'Cancelled'])->default('Inactive');
                 $table->decimal('total_price', 8, 2);

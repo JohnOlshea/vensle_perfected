@@ -46,7 +46,8 @@ class ProductController extends Controller
             $userCountry = $request->input('country');
 
             $query = Product::with(['images', 'displayImage', 'subcategory', 'category', 'user'])
-                ->orderBy('created_at', 'desc');
+	      	      	->where('deleted', 0)
+                	->orderBy('created_at', 'desc');
 
             if ($userCountry) {
                 $query->where('country', $userCountry);
@@ -102,7 +103,11 @@ class ProductController extends Controller
     {
         try {
             $user = auth()->user();
-            $products = $user->products;
+	    $products = $user->products()
+		      ->with(['images', 'displayImage', 'subcategory', 'category', 'user'])
+	      	      ->where('deleted', 0)
+		      ->orderBy('created_at', 'desc')
+		      ->get();
 
             return response()->json($products);
         } catch (\Exception $e) {
@@ -137,7 +142,7 @@ class ProductController extends Controller
                 'address' => 'required|string',
                 'phone_number' => 'required|string',
                 'description' => 'required|string',
-                'type' => 'required|string',
+                'type' => 'required|in:product,grocery,request',
                 'key_specifications' => 'nullable|string',
                 'status' => 'required|in:Active,Inactive,Pending,Paused',
                 'ratings' => 'nullable|numeric|min:0|max:5',
@@ -382,6 +387,7 @@ private function calculateSimilarity($tfidfVector1, $tfidfVector2) {
          //   ->where('name', 'like', '%' . $product->name . '%')
         ->where('id', '<>', $product->id)
             ->with(['images', 'displayImage', 'category'])
+	    ->where('deleted', 0)
             ->take(4)
             ->get();
 
@@ -395,6 +401,7 @@ private function calculateSimilarity($tfidfVector1, $tfidfVector2) {
 
             $products = Product::where('user_id', $user->id)
             ->with(['images', 'category', 'displayImage'])
+	    ->where('deleted', 0)
             ->paginate(10);
 
             return response()->json(['user' => $user, 'products' => $products]);
@@ -431,7 +438,7 @@ private function calculateSimilarity($tfidfVector1, $tfidfVector2) {
                 'address' => 'sometimes|required|string',
                 'phone_number' => 'sometimes|required|string',
                 'description' => 'sometimes|required|string',
-                'type' => 'sometimes|required|string',
+                'type' => 'sometimes|in:product,grocery,request',
                 'key_specifications' => 'sometimes|required|string',
                 'status' => 'sometimes|required|in:Active,Inactive,Pending,Paused',
                 'ratings' => 'sometimes|nullable|numeric|min:0|max:5',
@@ -566,28 +573,6 @@ public function updateStatus(Request $request, $productId)
     }
 }
 
-public function deleteProduct(Request $request, $productId)
-{
-    try {
-        $product = Product::findOrFail($productId);
-
-        $user = auth()->user();
-        if ($product->user_id !== $user->id) {
-            return response()->json(['error' => 'You are not authorized to delete this product'], 403);
-        }
-
-        $product->deleted = true;
-        $product->save();
-
-	return response()->json([
-            'message' => 'Product deleted successfully.',
-        ]);
-    } catch (\Exception $e) {
-        // Handle any exceptions
-        return response()->json(['error' => $e->getMessage()], 500);
-    }
-}
-
     /**
      * TODO: move to its controller, try catch
      */
@@ -606,7 +591,8 @@ public function deleteProduct(Request $request, $productId)
             $type = $request->input('type');
             $sortBy = $request->input('sortby', 'created_at');
 
-            $query = Product::with(['images', 'displayImage', 'category']);
+	    $query = Product::with(['images', 'displayImage', 'category'])
+		   	->where('deleted', 0);
 
             if ($userCountry) {
                 $query->where('country', $userCountry);
@@ -715,7 +701,11 @@ public function deleteProduct(Request $request, $productId)
     {
         try {
             $user = Auth::user();
-            $products = $user->products()->get();
+	    $products = $user->products()
+                ->with(['images', 'displayImage', 'subcategory', 'category', 'user'])
+                ->where('deleted', 0)
+                ->orderBy('created_at', 'desc')
+                ->get();
 
             return response()->json($products, 200);
         } catch (\Exception $e) {
@@ -753,6 +743,7 @@ public function deleteProduct(Request $request, $productId)
 		    ->select('product_id', DB::raw('SUM(price) as total_price'), DB::raw('SUM(quantity) as total_quantity'))
 		    ->orderByDesc('total_price')
 		    ->orderByDesc('total_quantity')
+	    	    ->with('product.images', 'product.displayImage', 'product.subcategory', 'product.category', 'product.user')
 		    ->paginate($perPage);
 
             return response()->json(['top_products' => $topProducts]);
@@ -768,15 +759,17 @@ public function deleteProduct(Request $request, $productId)
         try {
             // Validate the request input for type
             $request->validate([
-                'type' => 'required|in:product,grocery,request',
+                'type' => 'required|in:product,request',
                 'per_page' => 'sometimes|required|integer',
                 'duration' => 'sometimes|string|nullable|in:subWeek,subMonth,subYear', // Add duration validation
             ]);
 
             $perPage = $request->input('per_page', 10);
             $duration = $request->input('duration', 'subYear'); // Default duration is subYear
+	    $type = $request->input('type');
 
         $query = Product::query();
+	$query->where('type', $type);
 
         // Add duration filter
         switch ($duration) {
@@ -1011,6 +1004,53 @@ public function deleteProduct(Request $request, $productId)
         $totalRequests = Product::where('user_id', $user->id)->where('type', 'request')->count();
         return response()->json(['totalRequests' => $totalRequests]);
     }
+
+    /**
+     * Soft Remove the specified resource from storage.
+     *
+     * @param  int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+
+    /*public function softDeleteProduct($id)
+    {
+	try {
+            $product = Product::findOrFail($id);
+
+            if (auth()->id() !== $product->user_id) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+
+            $product->update(['deleted' => 1]);
+
+            return response()->json(null, 204);	    
+        } catch (\Exception $e) {
+            Log::error('Error deleting product: ' . $e->getMessage());
+            return response()->json(['error' => $e], 500);
+        }
+    }*/   
+
+public function deleteProduct(Request $request, $productId)
+{
+    try {
+        $product = Product::findOrFail($productId);
+
+        $user = auth()->user();
+        if ($product->user_id !== $user->id) {
+            return response()->json(['error' => 'You are not authorized to delete this product'], 403);
+        }
+
+        $product->deleted = true;
+        $product->save();
+
+	return response()->json([
+            'message' => 'Product deleted successfully.',
+        ]);
+    } catch (\Exception $e) {
+        // Handle any exceptions
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
 
     /**
      * Remove the specified resource from storage.

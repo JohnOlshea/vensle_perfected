@@ -11,8 +11,7 @@ class Message extends Model
     use HasFactory;
     //use SoftDeletes;
 
-    protected $fillable = ['sender_id', 'receiver_id', 'product_id', 'content'];
-    //protected $fillable = ['sender_id', 'receiver_id', 'product_id', 'content', 'read'];
+    protected $fillable = ['sender_id', 'receiver_id', 'product_id', 'content', 'is_read'];
 
     //protected $dates = ['deleted_at'];
 

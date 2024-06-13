@@ -16,6 +16,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserAlertController;
 use App\Http\Controllers\Auth\GoogleLoginController;
 use App\Http\Controllers\BusinessDetailsController;
+use App\Http\Controllers\DriverDetailController;
 use App\Http\Controllers\AuthSocialiteController;
 use App\Http\Controllers\CustomPasswordResetController;
 use App\Http\Controllers\FacebookController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\ReplyController;
 use App\Http\Controllers\SavedProductController;
+use App\Http\Controllers\TransactionController;
 
 use Laravel\Socialite\Facades\Socialite;
 
@@ -46,8 +48,10 @@ Route::middleware('auth:sanctum')->get(
 //TODO: auth for admin only
 Route::get('/v1/users', [UserAuthController::class, 'index']);
 
+
 Route::middleware('auth:api')->prefix('v1')->group(
     function () {
+        Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/user/orders', [OrderController::class, 'getUserOrders']);
         Route::get('/user/orders/{orderId}', [OrderController::class, 'getOrderDetails']);
         Route::post('/user/orders', [OrderController::class, 'store']);
@@ -55,8 +59,10 @@ Route::middleware('auth:api')->prefix('v1')->group(
         Route::get('/orders/{orderId}', [OrderController::class, 'orderDetails']);
 
 	//TODO: authorize to admin and driver
+	Route::get('/driver/dashboard-data', [orderController::class, 'getDriverDashboardData']);
+
 	Route::put('/orders/{order}/accept', [OrderController::class, 'acceptOrder']);	
-	Route::put('/orders/{order}/complete', [OrderController::class, 'completeOrder']);	
+	Route::post('/orders/{order}/complete', [OrderController::class, 'completeOrder']);	
 	Route::put('/order-item/{orderItem}/complete', [OrderController::class, 'completeOrderItem']);	
 
 	Route::get('/orders/{orderId}/order_trails', [OrderTrailController::class, 'index']);	
@@ -87,6 +93,9 @@ Route::get('/v1/auth/facebook/callback', [FacebookController::class, 'facebookre
 
 Route::post('/v1/forgot-password', [CustomPasswordResetController::class, 'forgotPassword']);
 Route::post('/v1/reset-password', [CustomPasswordResetController::class, 'resetPassword']);
+
+//TODO:protect, admin only
+Route::get('/v1/roles', [UserAuthController::class, 'getAllRoles']);
 
 //Route::post('/v1/payment', 'App\Http\Controllers\StripeController@payment');
 //Route::post('/v1/orders', [Controller::class, 'payment']);
@@ -145,9 +154,10 @@ Route::get('/v1/products/{id}', [ProductController::class, 'show']);
 
 Route::middleware('auth:api')->group(
     function () {
-        Route::post('/v1/my-products', [ProductController::class, 'getMyProducts']);
+        Route::get('/v1/my-products', [ProductController::class, 'getMyProducts']);
         Route::post('/v1/products/{productId}/status', [ProductController::class, 'updateStatus']);
         Route::delete('/v1/products/{productId}', [ProductController::class, 'deleteProduct']);
+        //Route::delete('/v1/products/soft/{id}', [ProductController::class, 'softDeleteProduct']);
         Route::post('/v1/products/{id}', [ProductController::class, 'update']);
         Route::post('/v1/products', [ProductController::class, 'store']);
     }
@@ -161,6 +171,10 @@ Route::post('v1/categories/{category}', [CategoryController::class, 'update']);
 Route::post('v1/categories', [CategoryController::class, 'store']);
 Route::delete('v1/categories/{category}', [CategoryController::class, 'destroy']);
 
+Route::get('v1/categories/{category}/products', [CategoryController::class, 'productsByCategory']);
+Route::get('v1/subcategories/{subcategory}/products', [CategoryController::class, 'productsBySubcategory']);
+
+Route::get('v1/subcategories', [CategoryController::class, 'getSubcategories']);
 Route::get('v1/{category}/subcategories', [CategoryController::class, 'getCategorySubcategories']);
 Route::post('v1/subcategories/{subcategory}', [CategoryController::class, 'updateSubcategory']);
 Route::post('v1/subcategories', [CategoryController::class, 'createSubcategory']);
@@ -192,6 +206,8 @@ Route::middleware('auth:api')->group(
         Route::get('/v1/user-alerts/unread', [UserAlertController::class, 'getUnreadAlerts']);
         Route::put('/v1/user-alerts/mark-as-read', [UserAlertController::class, 'markAlertsAsRead']);
         Route::get('/v1/user-alerts/unread-count', [UserAlertController::class, 'getUnreadAlertsCount']);
+	Route::get('/v1/user/chats/{userId}', [MessageController::class, 'getChatsWithUser']);
+	Route::get('/v1/last-chat', [MessageController::class, 'getLastChat']);
     }
 );
 
@@ -204,22 +220,33 @@ Route::get('/v1/auth/google/callback', [AuthSocialiteController::class, 'handleG
 
 Route::get('/v1/business-details/{id}', [BusinessDetailsController::class, 'show']);
 
-Route::middleware(['auth:api', 'role:driver,user'])->group(
+Route::middleware(['auth:api', 'role:driver,user,administrator'])->group(
     function () {
         Route::get('/v1/business-details', [BusinessDetailsController::class, 'getBusinessDetails']);
         Route::post('/v1/business-details/update', [BusinessDetailsController::class, 'update']);
+
+	//TODO: driver only role
+	Route::post('/v1/driver-details', [DriverDetailController::class, 'storeOrUpdate']);
     }
 );
+
+
+
 //TODO: protect route 
 Route::post('/v1/business-details', [BusinessDetailsController::class, 'store']);
 
 //TODO:soft delete
 Route::delete('/v1/business-details/{id}', [BusinessDetailsController::class, 'destroy']);
 
-Route::get('/v1/feedback/{product_id}', [FeedbackController::class, 'index']);
+Route::get('/v1/feedback/{product_id}', [FeedbackController::class, 'getProductFeedback']);
 Route::middleware(['auth:api'])->group(
     function () {
-        Route::post('/v1/feedback', [FeedbackController::class, 'store']);
+        Route::get('/v1/feedback', [FeedbackController::class, 'index']);
+	Route::post('/v1/feedback', [FeedbackController::class, 'store']);
+
+	Route::apiResource('/v1/transactions', TransactionController::class)->except(['update', 'destroy']);
+	Route::put('/v1/transactions/{transaction_id}', [TransactionController::class, 'update']);
+	Route::delete('/v1/transactions/{transaction_id}', [TransactionController::class, 'destroy']);
     }
 );
 

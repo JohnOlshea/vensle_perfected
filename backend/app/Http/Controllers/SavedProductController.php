@@ -21,7 +21,7 @@ class SavedProductController extends Controller
     	    ->with(['product.category', 'product.images', 'product.user', 'product.displayImage'])
     	    ->get();
 
-	return response()->json($savedProducts, 200);
+	return response()->json(['saved_products' => $savedProducts], 200);
     }
 
     /**

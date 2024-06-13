@@ -7,12 +7,21 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\OrderItem;
 use App\Models\OrderTrail;
+use App\Models\Feedback;
+use App\Models\Message;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
+    public function index()
+    {
+        $orders = Order::with('user')->get();
+        return response()->json(['orders' => $orders]);
+    }
+
     /**
      * Get orders for the authenticated user.
      *
@@ -34,6 +43,37 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    public function getDriverDashboardData(Request $request)
+    {
+        $driver = Auth::user();    
+
+	$totalOrders = $driver->orders()->count();
+
+        $totalAcceptedOrders = $driver->orders()
+                                      ->whereHas('driverActivities', function ($query) {
+                                         $query->where('action', 'accepted');
+                                      })
+                                      ->distinct()
+                                      ->count();
+
+        $totalRejectedOrders = $driver->orders()
+                                      ->whereHas('driverActivities', function ($query) {
+                                         $query->where('action', 'rejected');
+                                      })
+                                      ->distinct()
+				      ->count();
+	$totalEarnings = $driver->orders()
+                         ->where('driver_id', $driver->id)
+			 ->sum('total_price');
+
+	return response()->json([
+          'total_orders' => $totalOrders,
+          'total_accepted_orders' => $totalAcceptedOrders,
+          'total_rejected_orders' => $totalRejectedOrders,
+          'total_earnings' => $totalEarnings,
+	]);
     }
 
     /**
@@ -183,8 +223,32 @@ class OrderController extends Controller
             return response()->json(['error' => 'Order not found'], 404);
         }
 
+        $validationRules = [];
+        if ($order->proof_type === 'picture') {
+            $validationRules['delivery_proof_image'] = 'required|image|mimes:jpeg,png,jpg,gif|max:2048';
+        } else {
+            $validationRules['delivery_code'] = 'required';
+	}
+
+        if ($request->has('driver_feedback')) {
+            $validationRules['driver_feedback.*.vendor_id'] = 'required';
+            $validationRules['driver_feedback.*.rating'] = 'sometimes|nullable|integer|min:1|max:5';
+            $validationRules['driver_feedback.*.feedback'] = 'sometimes|nullable|string|max:255';
+        }	
+
+        if ($request->has('message')) {
+     	    $validationRules['receiver_id'] = 'required|exists:users,id';
+	}
+
+        $validator = Validator::make($request->all(), $validationRules);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 422);
+        }	
+	    
+	$driver_id = Auth::id();
         // Check if driver is authorized to complete
-        if ($order->driver_id !== Auth::id()) {
+        if ($order->driver_id !== $driver_id) {
             return response()->json(['error' => 'Unauthorized to complete this order'], 403);
         }
 
@@ -193,10 +257,72 @@ class OrderController extends Controller
             return response()->json(['error' => 'Order cannot be completed at this stage'], 400);
         }
 
-        $order->status = 'Completed';
+	// Stored Seller rating and feedback
+	$storedFeedback = [];
+        if ($request->has('driver_feedback')) {
+            foreach ($request->input('driver_feedback', []) as $feedbackData) {
+                if (empty($feedbackData['vendor_id'])) {
+                    return response()->json(['error' => 'User ID is required in driver feedback'], 400);
+		}
+
+                $feedback = new Feedback([
+                    'user_id' => $feedbackData['vendor_id'],
+                    'content' => $feedbackData['feedback'] ?? null,
+                    'rating' => $feedbackData['rating'] ?? null,
+                ]);
+
+                $feedback->save();		
+		$storedFeedback[] = $feedback->toArray();
+            }
+        }	
+
+	// Proof type can either be picture or code
+        if ($order->proof_type === 'picture') {
+            $imageFile = $request->file('delivery_proof_image');
+
+            if ($imageFile) {  // Check if image file is uploaded
+                $extension = $imageFile->getClientOriginalExtension();
+                $imageName = Str::random(32) . '.' . $extension;
+                $imageFile->storeAs('public/delivery_proofs', $imageName);
+                $order->delivery_proof_image = $imageName;
+            }
+        } else {
+            $deliveryCode = $request->input('delivery_code');
+            $validDeliveryCode = Order::where('delivery_code', $deliveryCode)
+                ->where('id', $order->id)
+                ->exists();
+
+            if (!$validDeliveryCode) {
+                return response()->json(['error' => 'Invalid delivery code'], 400);
+            }	    
+        }
+
+
+        if ($request->has('message')) {
+		
+		$message = Message::create(
+		    [
+		        'sender_id' => $driver_id,
+		        'receiver_id' => $order->user_id,
+		        'content' => $request->input('message'),
+		        //TODO: order_id
+		        //'product_id' => $request->input('product_id'),
+		        'read' => false,
+		    ]
+		);
+	}
+
+
+	$order->status = 'Completed';
+
         $order->save();
 
-        return response()->json(['message' => 'Order completed successfully', 'order' => $order]);
+        return response()->json([
+            'message_status' => 'Order completed successfully',
+            'order' => $order,
+            'feedback' => $storedFeedback,
+	    'message' => $message,
+        ]);	
     }
 
     public function completeOrderItem(Request $request, OrderItem $orderItem)

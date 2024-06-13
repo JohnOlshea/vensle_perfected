@@ -27,11 +27,35 @@ class UserAuthController extends Controller
         * @param  \Illuminate\Http\Request  $request
         * @return \Illuminate\Http\JsonResponse
         */
-        public function index()
+        public function index(Request $request)
         {
-	    //TODO: admin only
-            $users = User::all();
-            return response()->json($users);
+           try {
+	      $role = $request->input('role');
+
+	      $where = '';
+
+	      //switch ($role) {
+		  //case 'administrator':
+		     //$where = 'administrator';
+		  //break;
+		  //case 'driver':
+		     //$where = 'driver';
+		  //break;
+		  //case 'vendor':
+		     //$where = 'vendor';
+		  //break;
+		  //default:
+		     //$where = 'user';
+		  //break;
+	      //}
+
+	      //TODO: protect route admin only
+              //$users = User::where('role', $role)->with('role')->get();
+              $users = User::with('role')->get();
+              return response()->json($users);
+           } catch (\Exception $e) {
+               return response()->json(['error' => $e->getMessage()], 500);
+           }
         }
 
     /**
@@ -50,7 +74,7 @@ class UserAuthController extends Controller
                 'password' => 'required|confirmed',
                 'phone_number' => 'required',
                 'address' => 'required',
-		'role' => 'required|in:administrator,driver,user',
+		'role' => 'sometimes|in:administrator,driver,user,vendor',
                 'business_name' => 'nullable|max:255',
             ]);
 
@@ -64,13 +88,15 @@ class UserAuthController extends Controller
 
             $validated_data['password'] = bcrypt($request->password);
 
-        $role = Role::where('name', $validated_data['role'])->first();
-
-        if (!$role) {
-            return response()->json(['error' => 'Invalid role provided'], 400);
-        }
-
-        $validated_data['role_id'] = $role->id;	    
+        if ($request->has('role')) {
+            $role = Role::where('name', $validated_data['role'])->first();
+            if (!$role) {
+                return response()->json(['error' => 'Invalid role provided'], 400);
+            }
+            $validated_data['role_id'] = $role->id;	    
+	} else {
+            $validated_data['role_id'] = 2;//2 - User. TODO: use constant	    
+	}
 
             $user = User::create($validated_data);
 
@@ -122,9 +148,10 @@ class UserAuthController extends Controller
                 return response()->json(['message' => 'Incorrect Details. Please try again'], 401);
             }
 
-            $token = auth()->user()->createToken('API Auth Token')->accessToken;
+	    $user = auth()->user()->load('role');
+            $token = $user->createToken('API Auth Token')->accessToken;
 
-            return response()->json(['user' => auth()->user(), 'token' => $token], 200);
+            return response()->json(['user' => $user, 'token' => $token], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
@@ -415,6 +442,47 @@ class UserAuthController extends Controller
         }
     }
 
+    /**
+     * Block or Unblock user
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return JsonResponse
+     */
+    public function getBlockOrUnBlockUser(request $request)
+    {
+        try {
+            $validatedData = $request->validate([
+		'action' => 'required|in:block,unblock',
+            ]);
+
+            $user = User::findOrFail($userId);
+	    $message = '';
+
+            if (!$user) {
+                    return response()->json(['message' => 'User not found'], 404);
+	    }
+
+	    if($validatedData['unblock'] == 'unblock') {
+        	$product->status = 'blocked';
+		$message = 'User blocked successfully';
+	    }else {
+        	$product->status = 'unblocked';
+		$message = 'User unblocked successfully';
+	    }
+
+            $user->save();
+
+            return response()->json(['message' => $message], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getAllRoles()
+    {
+        $roles = Role::all();
+        return response()->json(['categories' => $roles]);
+    }
 
 
 }
