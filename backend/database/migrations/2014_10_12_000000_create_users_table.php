@@ -21,6 +21,10 @@ return new class extends Migration
                 $table->timestamp('email_verified_at')->nullable();
                 $table->string('password');
                 $table->rememberToken();
+		$table->decimal('lat', 10, 8)->nullable();
+            	$table->decimal('lng', 11, 8)->nullable();
+		$table->enum('status', ['Inactive', 'Pending', 'approved', 'banned'])->default('Pending');
+                $table->decimal('rating', 3, 2)->nullable();
                 $table->timestamps();
             }
         );

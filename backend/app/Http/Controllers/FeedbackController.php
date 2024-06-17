@@ -14,11 +14,22 @@ use Illuminate\Support\Facades\Auth;
  */
 class FeedbackController extends Controller
 {
-    //public function __construct()
-    //{
-        //$this->middleware('auth:api');
-    //}
+    public function index()
+    {
+        $feedbacks = Feedback::with('user')->get();
 
+        return response()->json($feedbacks);
+    }
+
+    public function getProductFeedback($product_id)
+    {
+        $feedback = Feedback::where('product_id', $product_id)
+            ->with(['user', 'product', 'parent'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($feedback);
+    }
     public function store(Request $request)
     {
         $request->validate(
@@ -74,13 +85,4 @@ class FeedbackController extends Controller
         $product->update(['ratings' => $averageRating]);
     }
 
-    public function index($product_id)
-    {
-        $feedback = Feedback::where('product_id', $product_id)
-            ->with(['user', 'product', 'parent'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json($feedback);
-    }
 }

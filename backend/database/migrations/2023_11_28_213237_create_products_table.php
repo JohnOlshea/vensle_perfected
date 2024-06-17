@@ -20,7 +20,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('subcategory_id');
                 $table->enum('condition', ['new', 'used', 'na']);
                 $table->decimal('price', 8, 2);
-                $table->decimal('discount', 8, 2)->default(0);
+                $table->decimal('discount', 8, 2)->nullable()->default(0);
                 $table->string('address');
                 $table->string('phone_number');
                 $table->text('description');
@@ -46,6 +46,7 @@ return new class extends Migration
                 $table->foreign('subcategory_id')->references('id')->on('subcategories');
                 //$table->foreign('image_id')->references('id')->on('images')->onDelete('set null');
                 //$table->foreign('display_image_id')->references('id')->on('images')->onDelete('set null');
+		$table->boolean('deleted')->default(0);
             }
         );
     }

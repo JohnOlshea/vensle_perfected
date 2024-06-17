@@ -14,9 +14,16 @@ class Order extends Model
 	'driver_id',
         'stripe_session_id',
         'payment_method',
+	'proof_type',
 	'paid',
         'status',
         'total_price',
+	'shipping_address_id',
+	'rejected_driver_ids',
+    ];
+
+    protected $casts = [
+        'rejected_driver_ids' => 'array',
     ];
 
     /**
@@ -34,10 +41,28 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function shippingAddress()
+    {
+        return $this->belongsTo(ShippingAddress::class);
+    }    
+
     public function orderTrails()
     {
         return $this->hasMany(OrderTrail::class);
-    }    
+    }
+
+    public function driver()
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    /**
+     * Get the driver activities associated with the order.
+     */
+    public function driverActivities()
+    {
+        return $this->hasMany(OrderDriverActivity::class);
+    }
 
     /**
      * Define a relationship to products based on product_ids array.

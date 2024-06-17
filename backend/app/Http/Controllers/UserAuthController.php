@@ -6,11 +6,15 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Order;
+use App\Models\UserAlert;
+use App\Models\DriverDetail;
+use App\Models\DriverLocation;
 use App\Models\BusinessDetails;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use App\Models\UserAlert;
 //use App\Notifications\PasswordChanged;
 
 /**
@@ -27,11 +31,35 @@ class UserAuthController extends Controller
         * @param  \Illuminate\Http\Request  $request
         * @return \Illuminate\Http\JsonResponse
         */
-        public function index()
+        public function index(Request $request)
         {
-	    //TODO: admin only
-            $users = User::all();
-            return response()->json($users);
+           try {
+	      $role = $request->input('role');
+
+	      $where = '';
+
+	      //switch ($role) {
+		  //case 'administrator':
+		     //$where = 'administrator';
+		  //break;
+		  //case 'driver':
+		     //$where = 'driver';
+		  //break;
+		  //case 'vendor':
+		     //$where = 'vendor';
+		  //break;
+		  //default:
+		     //$where = 'user';
+		  //break;
+	      //}
+
+	      //TODO: protect route admin only
+              //$users = User::where('role', $role)->with('role')->get();
+              $users = User::with('role')->get();
+              return response()->json($users);
+           } catch (\Exception $e) {
+               return response()->json(['error' => $e->getMessage()], 500);
+           }
         }
 
     /**
@@ -50,10 +78,11 @@ class UserAuthController extends Controller
                 'password' => 'required|confirmed',
                 'phone_number' => 'required',
                 'address' => 'required',
-		'role' => 'required|in:administrator,driver,user',
+		'role' => 'sometimes|in:administrator,driver,user,vendor',
                 'business_name' => 'nullable|max:255',
             ]);
 
+	    // Set default notification preferences
 	$validated_data['notification_preferences'] = [
 	    'password_change' => true,
 	    'login' => true,
@@ -63,18 +92,21 @@ class UserAuthController extends Controller
 	];	    
 
             $validated_data['password'] = bcrypt($request->password);
+            $validated_data['rating'] = null;
 
-        $role = Role::where('name', $validated_data['role'])->first();
-
-        if (!$role) {
-            return response()->json(['error' => 'Invalid role provided'], 400);
-        }
-
-        $validated_data['role_id'] = $role->id;	    
-
+	    // Check and set the role
+        if ($request->has('role')) {
+            $role = Role::where('name', $validated_data['role'])->first();
+            if (!$role) {
+                return response()->json(['error' => 'Invalid role provided'], 400);
+            }
+            $validated_data['role_id'] = $role->id;	    
+	} else {
+            $validated_data['role_id'] = 2;//2 - User. TODO: use constant	    
+	}
             $user = User::create($validated_data);
 
-               // Add business details for the user
+               // Add business details for the user if provided
             $businessDetailsData = $request->only(
                 [
                 'business_name',
@@ -90,7 +122,11 @@ class UserAuthController extends Controller
 
                $user->businessDetails()->create($businessDetailsData);
 
-
+	    if ($validated_data['role'] === 'driver') {
+                DriverDetail::create([
+                    'user_id' => $user->id,
+                ]);
+	    }
 
             $token = $user->createToken('API Auth Token')->accessToken;
 
@@ -122,9 +158,10 @@ class UserAuthController extends Controller
                 return response()->json(['message' => 'Incorrect Details. Please try again'], 401);
             }
 
-            $token = auth()->user()->createToken('API Auth Token')->accessToken;
+	    $user = auth()->user()->load('role');
+            $token = $user->createToken('API Auth Token')->accessToken;
 
-            return response()->json(['user' => auth()->user(), 'token' => $token], 200);
+            return response()->json(['user' => $user, 'token' => $token], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
@@ -229,6 +266,127 @@ class UserAuthController extends Controller
         return response(['user' => $user, 'message' => 'Profile updated successfully'], 200);
     }
 
+
+    public function updateLocation(Request $request)
+    {
+        $driver = Auth::user();
+
+        $request->validate([
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
+
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $isOnline = true;
+
+        DriverLocation::updateOrCreate(
+            ['user_id' => $driver->id],
+            ['latitude' => $latitude, 'longitude' => $longitude, 'is_online' => $isOnline]
+        );
+
+        // Assign pending orders to this driver if they are online
+	// Driver should have an action flag (free, ongoing_deliver)
+        $ongoingOrder = Order::where('driver_id', $driver->id)
+                            ->where('status', '=', 'Ongoing')
+                            ->first();
+
+        // Assign pending orders to this driver only if they are not delivering an order
+        if (!$ongoingOrder) {
+            $this->assignPendingOrders($driver->id);
+        }	
+
+        return response()->json(['status' => 'Location updated']);
+    }
+
+    //TODO: place in helper function
+    private function assignPendingOrders($driverId)
+    {
+        $driverLocation = DriverLocation::where('user_id', $driverId)->first();
+
+        if (!$driverLocation) {
+            return;
+        }
+
+	$pendingOrders = Order::where('status', 'pending')->orderBy('created_at')->get();
+	//TODO: if there are no pending orders, limit distance of orders to find
+        foreach ($pendingOrders as $order) {
+            //$closestDriver = $this->findClosestDriver($order->latitude, $order->longitude);
+            $closestDriver = $this->findClosestDriver(9.0627, 7.4635);
+
+            if ($closestDriver) {
+                $order->driver_id = $closestDriver->user_id;
+                $order->status = 'Ongoing';
+                $order->save();
+
+                // Notify driver
+                //$this->notifyDriver($driverId, $order->id);
+		
+		//While looking for closest order, other closest drivers are assingned orders
+		//?
+		if ($closestDriver->user_id == $driverId) {
+                	break;
+              	}
+            }
+        }
+    }    
+
+
+    //TODO: place in helper function
+    private function findClosestDriver($latitude, $longitude)
+    {
+	//TODO: just use driver_locations table. what happens if drivers not found
+        $drivers = DB::table('users')
+            ->join('driver_locations', 'users.id', '=', 'driver_locations.user_id')
+            ->where('driver_locations.is_online', true)
+            ->select('users.id as user_id', 'driver_locations.latitude', 'driver_locations.longitude')
+            ->get();
+
+        $closestDriver = null;
+        $minDistance = PHP_INT_MAX;
+
+        foreach ($drivers as $driver) {
+            $distance = $this->haversine($latitude, $longitude, $driver->latitude, $driver->longitude);
+            if ($distance < $minDistance) {
+                $minDistance = $distance;
+                $closestDriver = $driver;
+            }
+        }
+
+        return $closestDriver;
+    }
+
+    //TODO:Place in helper function
+    private function haversine($lat1, $lon1, $lat2, $lon2)
+    {
+        $earth_radius = 6371; // Earth radius in kilometers
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($dLat/2) * sin($dLat/2) +
+             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+             sin($dLon/2) * sin($dLon/2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+
+        return $earth_radius * $c;
+    }
+
+    public function updateAnyonesLocation(Request $request)
+    {
+        $request->validate([
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
+
+        $user = Auth::user();
+        $user->lat = $request->input('latitude');
+        $user->lng = $request->input('longitude');
+        $user->save();
+
+        return response()->json(['message' => 'Location updated successfully', 'user' => $user]);
+    }
 
     /*public function updateProfile(Request $request)
     {
@@ -415,6 +573,47 @@ class UserAuthController extends Controller
         }
     }
 
+    /**
+     * Block or Unblock user
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return JsonResponse
+     */
+    public function getBlockOrUnBlockUser(request $request)
+    {
+        try {
+            $validatedData = $request->validate([
+		'action' => 'required|in:block,unblock',
+            ]);
+
+            $user = User::findOrFail($userId);
+	    $message = '';
+
+            if (!$user) {
+                    return response()->json(['message' => 'User not found'], 404);
+	    }
+
+	    if($validatedData['unblock'] == 'unblock') {
+        	$product->status = 'blocked';
+		$message = 'User blocked successfully';
+	    }else {
+        	$product->status = 'unblocked';
+		$message = 'User unblocked successfully';
+	    }
+
+            $user->save();
+
+            return response()->json(['message' => $message], 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function getAllRoles()
+    {
+        $roles = Role::all();
+        return response()->json(['categories' => $roles]);
+    }
 
 
 }

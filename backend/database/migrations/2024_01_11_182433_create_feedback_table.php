@@ -14,9 +14,9 @@ return new class extends Migration
         Schema::create(
             'feedback', function (Blueprint $table) {
                 $table->id();
-                $table->text('content');
+                $table->text('content')->nullable();
                 $table->unsignedBigInteger('user_id');
-                $table->unsignedBigInteger('product_id');
+                $table->unsignedBigInteger('product_id')->nullable();
                 $table->integer('rating')->nullable();
                 $table->unsignedBigInteger('parent_id')->nullable();
                 $table->timestamps();
