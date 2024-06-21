@@ -213,6 +213,101 @@ class ProductController extends Controller
         }
     }
 
+
+    /**
+     * Store a product without images
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeProductWithoutImages(Request $request)
+    {
+        $response = [];
+
+        try {
+            $validatedData = $request->validate(
+                [
+                'name' => 'required|string',
+                'condition' => 'required|in:new,used,na',
+                'price' => 'required|numeric',
+                'discount' => 'sometimes|nullable|numeric',
+                'address' => 'required|string',
+                'phone_number' => 'required|string',
+                'description' => 'required|string',
+                'type' => 'required|in:product,grocery,request',
+                'key_specifications' => 'nullable|string',
+                'status' => 'required|in:Active,Inactive,Pending,Paused',
+                'ratings' => 'nullable|numeric|min:0|max:5',
+                'product_quantity' => 'nullable|integer|min:0',
+                'sold' => 'nullable|integer|min:0',
+                'views' => 'nullable|integer|min:0',
+                'category_id' => 'required|exists:categories,id',
+		'subcategory_id' => 'required|exists:subcategories,id',
+                'latitude' => 'required|numeric',
+                'longitude' => 'required|numeric',
+                'currency' => 'required|string',
+                'city' => 'required|string',
+                'country' => 'required|string',
+                ]
+            );
+
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+            $product = $user->products()->create($validatedData);
+
+            return response()->json($product, 201);
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error storing product: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Store images for a product
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @param  \Illuminate\Http\Product $product
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeImagesOnly(Request $request, Product $product)
+    {
+        try {
+            $validatedData = $request->validate(
+                [
+                'images' => 'required',
+                'images.*' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+                ]
+            );
+
+        if ($request->hasFile('images')) {
+	    $imageFile = $request->images;
+            $extension = $imageFile->getClientOriginalExtension();
+            $imageName = Str::random(32) . '.' . $extension;
+            $image = new Image(
+                [
+                    'name' => $imageName,
+                    'extension' => $extension,
+                ]
+            );
+            $imageFile->move('uploads/', $imageName);
+            $image->product_id = $product->id;
+            $product->images()->save($image);
+        }
+
+            return response()->json(['product' => $product, 'images' => $image], 201);
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            Log::error('Error storing product: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+
     public function upload(Request $request)
     {
 

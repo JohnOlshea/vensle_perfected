@@ -26,14 +26,15 @@ class ShippingAddressController extends Controller
 	    return response()->json(['error' => 'Maximum limit of 3 shipping addresses reached'], 400);
 	}
 
-        $request->validate([
-            'name' => 'required',
-            'address_line_1' => 'required',
-            'city' => 'required',
-            'state' => 'required',
-            'postal_code' => 'required',
-            'country' => 'required',
-        ]);
+    $request->validate([
+        'name' => 'required|string',
+        'address_line_1' => 'required|string',
+        'address_line_2' => 'nullable|string',
+        'city' => 'required|string',
+        'state' => 'nullable|string',
+        'postal_code' => 'nullable|string',
+        'country' => 'nullable|string',
+    ]);
 
         $shippingAddress = new ShippingAddress([
             'user_id' => $user->id,
@@ -52,16 +53,26 @@ class ShippingAddressController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'name' => 'required',
-            'address_line_1' => 'required',
-            'city' => 'required',
-            'state' => 'required',
-            'postal_code' => 'required',
-            'country' => 'required',
-        ]);
+	    $user = Auth::user();
 
-        $shippingAddress = ShippingAddress::findOrFail($id);
+	    // Find the shipping address
+	    $shippingAddress = ShippingAddress::findOrFail($id);
+
+	    // Check if the authenticated user owns the shipping address
+	    if ($shippingAddress->user_id !== $user->id) {
+		return response()->json(['error' => 'You do not have permission to update this shipping address'], 403);
+	    }	    
+
+       $request->validate([
+            'name' => 'required|string',
+            'address_line_1' => 'required|string',
+            'address_line_2' => 'nullable|string',
+            'city' => 'required|string',
+            'state' => 'nullable|string',
+            'postal_code' => 'nullable|string',
+            'country' => 'nullable|string',
+        ]);	    
+
         $shippingAddress->name = $request->input('name');
         $shippingAddress->address_line_1 = $request->input('address_line_1');
         $shippingAddress->address_line_2 = $request->input('address_line_2');
@@ -74,11 +85,20 @@ class ShippingAddressController extends Controller
         return response()->json(['message' => 'Shipping address updated successfully', 'shipping_address' => $shippingAddress]);
     }
 
-    public function destroy($id)
-    {
-        $shippingAddress = ShippingAddress::findOrFail($id);
-        $shippingAddress->delete();
+    public function destroy($id) {
+	    $user = Auth::user();
 
-        return response()->json(['message' => 'Shipping address deleted successfully']);
-    }
+	    // Find the shipping address
+	    $shippingAddress = ShippingAddress::findOrFail($id);
+
+	    // Check if the authenticated user owns the shipping address
+	    if ($shippingAddress->user_id !== $user->id) {
+		return response()->json(['error' => 'You do not have permission to delete this shipping address'], 403);
+	    }
+
+	    // Delete the shipping address
+	    $shippingAddress->delete();
+
+	    return response()->json(['message' => 'Shipping address deleted successfully']);
+   }
 }

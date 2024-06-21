@@ -10,6 +10,8 @@ use App\Models\OrderTrail;
 use App\Models\Feedback;
 use App\Models\Message;
 use App\Models\DriverLocation;
+use App\Models\OrderDriverActivity;
+use App\Models\ShippingAddress;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +48,55 @@ class OrderController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+/**
+ * Get the first incoming order for the authenticated driver.
+ *
+ * @return \Illuminate\Http\JsonResponse
+ */
+public function getIncomingOrder()
+{
+    try {
+        $driver = Auth::user();
+        $incomingOrder = Order::where('driver_id', $driver->id)
+            ->where('status', 'Pending')
+            ->with('items.product.displayImage')
+            ->first();
+
+        if ($incomingOrder) {
+            return response()->json($incomingOrder);
+        } else {
+            return response()->json(['message' => 'No pending orders found'], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Get ongoing order for the authenticated driver.
+ *
+ * @return \Illuminate\Http\JsonResponse
+ */
+public function getOncomingOrder()
+{
+    try {
+        $driver = Auth::user();
+        $incomingOrder = Order::where('driver_id', $driver->id)
+            ->where('status', 'Ongoing')
+            ->with('items.product.displayImage')
+            ->first();
+
+        if ($incomingOrder) {
+            return response()->json($incomingOrder);
+        } else {
+            return response()->json(['message' => 'No Ongoing orders found'], 404);
+        }
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+}
+
 
     public function getDriverDashboardData(Request $request)
     {
@@ -88,15 +139,22 @@ class OrderController extends Controller
     {
 	//TODO:payment method in its own table
         try {
-            $validator = Validator::make(
-                $request->all(), [
-            	    'order_items' => 'required|array',
-            	    'order_items.*.product_id' => 'required|exists:products,id',
-            	    'order_items.*.quantity' => 'required|integer|min:1',	
-            	    'payment_method' => 'required|string',//Should be enum
-                    'total_price' => 'required|numeric',
-                ]
-            );
+            $validator = Validator::make($request->all(), [
+               'order_items' => 'required|array',
+                'order_items.*.product_id' => 'required|exists:products,id',
+                'order_items.*.quantity' => 'required|integer|min:1',
+                'payment_method' => 'required|string', // Should be enum
+                'total_price' => 'required|numeric',
+                'shipping_address_id' => 'required_without:new_shipping_address|nullable|exists:shipping_addresses,id',
+                'new_shipping_address' => 'required_without:shipping_address_id|array',
+                'new_shipping_address.name' => 'required_with:new_shipping_address',
+                'new_shipping_address.address_line_1' => 'required_with:new_shipping_address',
+                'new_shipping_address.address_line_2' => 'nullable|string',
+                'new_shipping_address.city' => 'required_with:new_shipping_address',
+                'new_shipping_address.state' => 'nullable|string',
+                'new_shipping_address.postal_code' => 'nullable|string',
+                'new_shipping_address.country' => 'nullable|string',		    
+            ]);
 
             if ($validator->fails()) {
                 return response()->json(['error' => $validator->errors()], 400);
@@ -108,22 +166,47 @@ class OrderController extends Controller
 	    $user = Auth::user();
 	    $userId = $user->id;
 
+
 	    // Delete old order and orderItems because user can only have one order at a time
             Order::where('user_id', $userId)->where('status', 'Inactive')->delete();
-
-	    // Create Order
+            // Create Order
             $order = Order::create(
                 [
                     'user_id' => $userId,
                     'stripe_session_id' => null,
                     'payment_method' => $request->payment_method,
-		    'paid' => false,
+                    'paid' => false,
                     'status' => 'Inactive',
                     'total_price' => $request->total_price,
                 ]
             );
 
+	    // Create Order
 
+        // Handle shipping address
+        if ($request->has('shipping_address_id')) {
+            $shippingAddressId = $request->input('shipping_address_id');
+        } else {
+            // Check if user already has 3 addresses
+            if ($user->shippingAddresses()->count() >= 3) {
+                return response()->json(['error' => 'Maximum limit of 3 shipping addresses reached'], 400);
+            }
+
+            // Create new shipping address
+            $newShippingAddress = $request->input('new_shipping_address');
+            $shippingAddress = new ShippingAddress([
+                'user_id' => $user->id,
+                'name' => $newShippingAddress['name'],
+                'address_line_1' => $newShippingAddress['address_line_1'],
+                'address_line_2' => $newShippingAddress['address_line_2'] ?? null,
+                'city' => $newShippingAddress['city'],
+                'state' => $newShippingAddress['state'] ?? null,
+                'postal_code' => $newShippingAddress['postal_code'] ?? null,
+                'country' => $newShippingAddress['country'] ?? null,
+            ]);
+            $shippingAddress->save();
+            $shippingAddressId = $shippingAddress->id;
+        }
 	    foreach ($orderItems as $item) {
                 $product = Product::find($item['product_id']);
 		$orderImageName = NULL; 
@@ -252,8 +335,10 @@ class OrderController extends Controller
             return response()->json(['error' => 'Order cannot be accepted at this stage'], 400);
         }
 
+	$driver_id = Auth::id();
+
         // Update driver_id and status
-        $order->driver_id = Auth::id();
+        $order->driver_id = $driver_id;
         $order->status = 'Ongoing';
         $order->save();
 
@@ -262,6 +347,15 @@ class OrderController extends Controller
 	$driverLocation->status = 'assigned';
 	$driverLocation->save();
 
+
+	// Create driver activity for order
+        OrderDriverActivity::create([
+            'driver_id' => $driver_id,
+            'order_id' => $order->id,
+            'action' => 'accepted',
+        ]);
+	
+	
         OrderTrail::create([
             'order_id' => $order->id,
             'name' => 'Delivery Accepted',
@@ -272,6 +366,44 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order accepted successfully', 'order' => $order]);
     }
 
+    //TODO: merge with acceptorder, not DRY
+    public function rejectOrder(Request $request, Order $order)
+    {
+        $request->validate([
+            'reason' => 'required|string',
+        ]);
+        // TODO: Check if order exists, current implementation not working
+        if (!$order) {
+            return response()->json(['error' => 'Order not found'], 404);
+        }
+
+        // Check if order is pending
+        if ($order->status !== 'Pending') {
+            return response()->json(['error' => 'Order cannot be rejected at this stage'], 400);
+        }
+
+        $driver_id = Auth::id();
+
+        // Create driver activity for order
+        OrderDriverActivity::create([
+            'driver_id' => $driver_id,
+            'order_id' => $order->id,
+	    'reason' => $request->input('reason'),
+            'action' => 'rejected',
+        ]);
+
+        $rejectedDriverIds = $order->rejected_driver_ids ?? [];
+        $rejectedDriverIds[] = $driver_id;
+
+        // Update the order with the new rejected driver IDs
+        $order->rejected_driver_ids = $rejectedDriverIds;
+        $order->save();
+
+        //send notification to seller
+
+        return response()->json(['message' => 'Order declined successfully']);
+    }
+
     public function completeOrder(Request $request, Order $order)
     {
         if (!$order) {
@@ -279,6 +411,7 @@ class OrderController extends Controller
         }
 
         $validationRules = [];
+	//Check delivery type buyer choose when making order
         if ($order->proof_type === 'picture') {
             $validationRules['delivery_proof_image'] = 'required|image|mimes:jpeg,png,jpg,gif|max:2048';
         } else {

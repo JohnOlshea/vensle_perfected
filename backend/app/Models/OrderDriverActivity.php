@@ -14,7 +14,7 @@ class OrderDriverActivity extends Model
      * @var string
      */
     protected $table = 'order_driver_activity';    
-    protected $fillable = ['order_id', 'driver_id', 'action', 'rejected_driver_ids'];
+    protected $fillable = ['order_id', 'driver_id', 'reason', 'action', 'rejected_driver_ids'];
 
     protected $casts = [
         'rejected_driver_ids' => 'array',

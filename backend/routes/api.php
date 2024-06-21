@@ -60,10 +60,11 @@ Route::middleware('auth:api')->prefix('v1')->group(
         Route::get('/orders/{orderId}', [OrderController::class, 'orderDetails']);
 
 	//TODO: authorize to admin and driver
-	Route::get('/driver/dashboard-data', [orderController::class, 'getDriverDashboardData']);
-
+	Route::get('/driver/dashboard-data', [OrderController::class, 'getDriverDashboardData']);
+	Route::get('/incoming-order', [OrderController::class, 'getIncomingOrder']);
+	Route::get('/outgoing-order', [OrderController::class, 'getOutgoingOrder']);
 	Route::put('/orders/{order}/accept', [OrderController::class, 'acceptOrder']);	
-	Route::put('/orders/{order}/reject', [OrderController::class, 'rejectOrder']);	
+	Route::post('/orders/{order}/reject', [OrderController::class, 'rejectOrder']);	
 	Route::post('/orders/{order}/complete', [OrderController::class, 'completeOrder']);	
 	Route::put('/order-item/{orderItem}/complete', [OrderController::class, 'completeOrderItem']);	
 
@@ -170,6 +171,8 @@ Route::middleware('auth:api')->group(
         Route::post('/v1/products/{productId}/status', [ProductController::class, 'updateStatus']);
         Route::delete('/v1/products/{productId}', [ProductController::class, 'deleteProduct']);
         //Route::delete('/v1/products/soft/{id}', [ProductController::class, 'softDeleteProduct']);
+        Route::post('/v1/products/no-image', [ProductController::class, 'storeProductWithoutImages']);
+        Route::post('/v1/products/{product}/image-only', [ProductController::class, 'storeImagesOnly']);
         Route::post('/v1/products/{id}', [ProductController::class, 'update']);
         Route::post('/v1/products', [ProductController::class, 'store']);
     }

@@ -27,6 +27,16 @@ class Order extends Model
     ];
 
     /**
+     * The attributes that should be hidden for arrays.
+     *
+     * @var array
+     */
+    protected $hidden = [
+        'rejected_driver_ids',
+        'stripe_session_id',
+    ];
+
+    /**
      * Get the user who placed the order.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

@@ -18,9 +18,9 @@ return new class extends Migration
             $table->string('address_line_1');
             $table->string('address_line_2')->nullable();
             $table->string('city');
-            $table->string('state');
-            $table->string('postal_code');
-            $table->string('country');	    
+            $table->string('state')->nullable();
+            $table->string('postal_code')->nullable();
+            $table->string('country')->nullable();  
 	    $table->timestamps();
 
 	    // Define foreign key constraint

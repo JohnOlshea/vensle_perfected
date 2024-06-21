@@ -16,6 +16,7 @@ return new class extends Migration
 	    $table->unsignedBigInteger('order_id');
             $table->unsignedBigInteger('driver_id');
             $table->enum('action', ['accepted', 'rejected']);
+            $table->text('reason');
             $table->timestamps();
 
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
