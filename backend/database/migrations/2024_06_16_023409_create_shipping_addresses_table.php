@@ -14,14 +14,16 @@ return new class extends Migration
         Schema::create('shipping_addresses', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
-            $table->string('name');
-            $table->string('address_line_1');
+            $table->decimal('latitude', 10, 8);
+            $table->decimal('longitude', 11, 8);
+            $table->string('name')->nullable();
+            $table->string('address_line_1')->nullable();
             $table->string('address_line_2')->nullable();
-            $table->string('city');
+            $table->string('city')->nullable();
             $table->string('state')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('country')->nullable();  
-	    $table->timestamps();
+	        $table->timestamps();
 
 	    // Define foreign key constraint
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');

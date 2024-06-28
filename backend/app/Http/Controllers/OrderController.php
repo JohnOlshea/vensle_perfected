@@ -22,7 +22,7 @@ class OrderController extends Controller
 {
     public function index()
     {
-        $orders = Order::with('user')->get();
+        $orders = Order::with('user')->orderBy('created_at', 'desc')->get();
         return response()->json(['orders' => $orders]);
     }
 
@@ -35,13 +35,14 @@ class OrderController extends Controller
     {
         try {
             $user = Auth::user();
-	    //dd($user);
+	        //dd($user);
             //$orders = Order::with('products')
             //$orders = Order::all(); 
             $orders = Order::where('user_id', $user->id)
-		->where('status', '!=', 'Pending')
-		->with('items.product.displayImage')
-                ->get();
+		    ->where('status', '!=', 'Pending')
+		    ->with('items.product.displayImage')
+            ->orderBy('created_at', 'desc')
+            ->get();
 
             return response()->json($orders);
         } catch (\Exception $e) {
@@ -78,7 +79,7 @@ public function getIncomingOrder()
  *
  * @return \Illuminate\Http\JsonResponse
  */
-public function getOncomingOrder()
+public function getOngoingOrder()
 {
     try {
         $driver = Auth::user();
@@ -97,36 +98,56 @@ public function getOncomingOrder()
     }
 }
 
+    //TODO:Move, not the right file for this
+    public function getUserDashboardData(Request $request)
+    {
+        $userId = Auth::id();
 
+        $totalForSale = Product::where('user_id', $userId)
+                               ->forSale();
+        
+        $totalForRequest = Product::where('user_id', $userId)
+                                  ->forRequest();
+        
+        $totalOrders = Order::where('user_id', $userId)
+                            ->activeOrders();
+
+        return response()->json([
+            'total_for_sale' => $totalForSale,
+            'total_for_request' => $totalForRequest,
+            'total_orders' => $totalOrders,
+        ]);    
+    }
+    
     public function getDriverDashboardData(Request $request)
     {
         $driver = Auth::user();    
 
-	$totalOrders = $driver->orders()->count();
+	    $totalOrders = $driver->orders()->count();
 
         $totalAcceptedOrders = $driver->orders()
-                                      ->whereHas('driverActivities', function ($query) {
-                                         $query->where('action', 'accepted');
-                                      })
-                                      ->distinct()
-                                      ->count();
+            ->whereHas('driverActivities', function ($query) {
+                $query->where('action', 'accepted');
+            })
+            ->distinct()
+            ->count();
 
         $totalRejectedOrders = $driver->orders()
-                                      ->whereHas('driverActivities', function ($query) {
-                                         $query->where('action', 'rejected');
-                                      })
-                                      ->distinct()
-				      ->count();
-	$totalEarnings = $driver->orders()
-                         ->where('driver_id', $driver->id)
-			 ->sum('total_price');
+            ->whereHas('driverActivities', function ($query) {
+                $query->where('action', 'rejected');
+            })
+            ->distinct()
+            ->count();
+            $totalEarnings = $driver->orders()
+            ->where('driver_id', $driver->id)
+            ->sum('total_price');
 
-	return response()->json([
-          'total_orders' => $totalOrders,
-          'total_accepted_orders' => $totalAcceptedOrders,
-          'total_rejected_orders' => $totalRejectedOrders,
-          'total_earnings' => $totalEarnings,
-	]);
+        return response()->json([
+            'total_orders' => $totalOrders,
+            'total_accepted_orders' => $totalAcceptedOrders,
+            'total_rejected_orders' => $totalRejectedOrders,
+            'total_earnings' => $totalEarnings,
+        ]);
     }
 
     /**
@@ -165,24 +186,6 @@ public function getOncomingOrder()
 
 	    $user = Auth::user();
 	    $userId = $user->id;
-
-
-	    // Delete old order and orderItems because user can only have one order at a time
-            Order::where('user_id', $userId)->where('status', 'Inactive')->delete();
-            // Create Order
-            $order = Order::create(
-                [
-                    'user_id' => $userId,
-                    'stripe_session_id' => null,
-                    'payment_method' => $request->payment_method,
-                    'paid' => false,
-                    'status' => 'Inactive',
-                    'total_price' => $request->total_price,
-                ]
-            );
-
-	    // Create Order
-
         // Handle shipping address
         if ($request->has('shipping_address_id')) {
             $shippingAddressId = $request->input('shipping_address_id');
@@ -206,7 +209,26 @@ public function getOncomingOrder()
             ]);
             $shippingAddress->save();
             $shippingAddressId = $shippingAddress->id;
-        }
+        }        
+
+	    // Delete old order and orderItems because user can only have one order at a time
+        Order::where('user_id', $userId)->where('status', 'Inactive')->delete();
+
+
+        // Create Order
+        $order = Order::create(
+            [
+                'user_id' => $userId,
+                'stripe_session_id' => null,
+                'order_number' => $this->generateOrderNumber(),
+                'payment_method' => $request->payment_method,
+                'paid' => false,
+                'status' => 'Inactive',
+                'total_price' => $request->total_price,
+                'shipping_address_id' => $shippingAddressId
+            ]
+        );
+
 	    foreach ($orderItems as $item) {
                 $product = Product::find($item['product_id']);
 		$orderImageName = NULL; 
@@ -270,7 +292,7 @@ public function getOncomingOrder()
             $closestDriver = $this->findClosestDriver(9.0627, 7.4635);
 	    if ($closestDriver) {
                 $order->driver_id = $closestDriver->user_id;
-                $order->status = 'Ongoing';
+                $order->status = 'Pending';
                 $order->save();
 
 		$closestDriver->status = 'assigned';
@@ -285,6 +307,12 @@ public function getOncomingOrder()
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    private function generateOrderNumber() {
+        $timestamp = now()->format('YmdHis');
+        $uniqueId = substr(md5(uniqid()), 0, 6);
+        return 'order_' . $uniqueId;
     }
 
     //TODO: place in helper function

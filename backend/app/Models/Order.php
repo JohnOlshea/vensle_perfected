@@ -11,15 +11,16 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
-	'driver_id',
+	    'driver_id',
         'stripe_session_id',
+        'order_number',
         'payment_method',
-	'proof_type',
-	'paid',
+	    'proof_type',
+	    'paid',
         'status',
         'total_price',
-	'shipping_address_id',
-	'rejected_driver_ids',
+	    'shipping_address_id',
+	    'rejected_driver_ids',
     ];
 
     protected $casts = [
@@ -73,6 +74,18 @@ class Order extends Model
     {
         return $this->hasMany(OrderDriverActivity::class);
     }
+
+
+    /**
+     * Scope a query to count total orders excluding 'Inactive' status.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return int
+     */
+    public function scopeActiveOrders($query)
+    {
+        return $query->where('status', '!=', 'Inactive')->count();
+    }    
 
     /**
      * Define a relationship to products based on product_ids array.

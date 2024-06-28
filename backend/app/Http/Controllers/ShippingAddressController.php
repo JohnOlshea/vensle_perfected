@@ -18,29 +18,33 @@ class ShippingAddressController extends Controller
     }
 
     public function store(Request $request)
-    {
+    {        
+        $request->validate([
+            'name' => 'nullable|string',
+            'address_line_1' => 'nullable|string',
+            'address_line_2' => 'nullable|string',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'city' => 'nullable|string',
+            'state' => 'nullable|string',
+            'postal_code' => 'nullable|string',
+            'country' => 'nullable|string',
+        ]);
+        
         $user = Auth::user();
 
-	// Check if user already has 3 addresses
-	if ($user->shippingAddresses()->count() >= 3) {
-	    return response()->json(['error' => 'Maximum limit of 3 shipping addresses reached'], 400);
-	}
-
-    $request->validate([
-        'name' => 'required|string',
-        'address_line_1' => 'required|string',
-        'address_line_2' => 'nullable|string',
-        'city' => 'required|string',
-        'state' => 'nullable|string',
-        'postal_code' => 'nullable|string',
-        'country' => 'nullable|string',
-    ]);
+        // Check if user already has 3 addresses
+        if ($user->shippingAddresses()->count() >= 3) {
+            return response()->json(['error' => 'Maximum limit of 3 shipping addresses reached'], 400);
+        }
 
         $shippingAddress = new ShippingAddress([
             'user_id' => $user->id,
             'name' => $request->input('name'),
             'address_line_1' => $request->input('address_line_1'),
             'address_line_2' => $request->input('address_line_2'),
+            'latitude' => $request->input('latitude'),
+            'longitude' => $request->input('longitude'),
             'city' => $request->input('city'),
             'state' => $request->input('state'),
             'postal_code' => $request->input('postal_code'),

@@ -123,4 +123,27 @@ class Product extends Model
      * @var array
      */
     protected $appends = ['total_feedback'];
+
+
+    /**
+     * Scope a query to count products for sale (type="for_sale").
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return int
+     */
+    public function scopeForSale($query)
+    {
+        return $query->where('type', 'for_sale')->count();
+    }
+
+    /**
+     * Scope a query to count products for request (type="request").
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return int
+     */
+    public function scopeForRequest($query)
+    {
+        return $query->where('type', 'request')->count();
+    }    
 }

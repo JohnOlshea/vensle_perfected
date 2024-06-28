@@ -60,8 +60,12 @@ Route::middleware('auth:api')->prefix('v1')->group(
         Route::get('/orders/{orderId}', [OrderController::class, 'orderDetails']);
 
 	//TODO: authorize to admin and driver
+	Route::get('/user/dashboard-data', [OrderController::class, 'getUserDashboardData']);        
+
+	//TODO: authorize to admin and driver
 	Route::get('/driver/dashboard-data', [OrderController::class, 'getDriverDashboardData']);
 	Route::get('/incoming-order', [OrderController::class, 'getIncomingOrder']);
+	Route::get('/ongoing-order', [OrderController::class, 'getOngoingOrder']);
 	Route::get('/outgoing-order', [OrderController::class, 'getOutgoingOrder']);
 	Route::put('/orders/{order}/accept', [OrderController::class, 'acceptOrder']);	
 	Route::post('/orders/{order}/reject', [OrderController::class, 'rejectOrder']);	
@@ -194,6 +198,17 @@ Route::get('v1/{category}/subcategories', [CategoryController::class, 'getCatego
 Route::post('v1/subcategories/{subcategory}', [CategoryController::class, 'updateSubcategory']);
 Route::post('v1/subcategories', [CategoryController::class, 'createSubcategory']);
 Route::delete('v1/subcategories/{subcategory}', [CategoryController::class, 'deleteSubcategory']);
+
+
+
+Route::get('v1/categories/category-type/{category_type_id}', [CategoryController::class, 'getCategoriesByType']);
+Route::get('v1/subcategories/category-type/{category_type_id}', [CategoryController::class, 'getSubcategoriesByType']);
+Route::get('v1/products/category-type/{category_type_id}}', [CategoryController::class, 'getProductsByType']);
+
+
+
+
+
 
 //[ Product request
 Route::apiResource('/v1/product-requests', ProductRequestController::class);

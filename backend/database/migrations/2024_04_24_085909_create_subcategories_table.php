@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->unsignedBigInteger('category_id');
             $table->string('image')->nullable();
+            $table->string('nav_image1')->nullable();
+            $table->string('nav_image2')->nullable();
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('cascade');	    
             $table->timestamps();
         });

@@ -11,13 +11,13 @@ class DriverDetailController extends Controller
     public function storeOrUpdate(Request $request)
     {
         //$this->validate($request, [
-	$request->validate([
+	    $request->validate([
             'license_identification_number' => 'required|string',
             'vehicle_registration_number' => 'required|string',
             'vehicle_make_model' => 'required|string',
             'vehicle_color' => 'required|string',
             'license_plate_number' => 'required|string',
-	    'license_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
+	        'license_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
             'vehicle_photo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
         ]);
 

@@ -8,10 +8,12 @@ use App\Models\User;
 use App\Models\Category;
 use App\Models\Image;
 use App\Models\OrderItem;
+use App\Services\SimilarProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 
 
@@ -31,6 +33,13 @@ use Illuminate\Support\Facades\Input;
  */
 class ProductController extends Controller
 {
+    protected $similarProductService;
+
+    public function __construct(SimilarProductService $similarProductService)
+    {
+        $this->similarProductService = $similarProductService;
+    }
+        
     /**
      * Display a listing of the resource.
      *
@@ -144,18 +153,18 @@ class ProductController extends Controller
                 'description' => 'required|string',
                 'type' => 'required|in:product,grocery,request',
                 'key_specifications' => 'nullable|string',
-                'status' => 'required|in:Active,Inactive,Pending,Paused',
+                'status' => 'nullable|in:Active,Inactive,Pending,Paused',
                 'ratings' => 'nullable|numeric|min:0|max:5',
                 'product_quantity' => 'nullable|integer|min:0',
                 'sold' => 'nullable|integer|min:0',
                 'views' => 'nullable|integer|min:0',
                 'category_id' => 'required|exists:categories,id',
-		'subcategory_id' => 'required|exists:subcategories,id',
-                'latitude' => 'required|numeric',
-                'longitude' => 'required|numeric',
+		        'subcategory_id' => 'required|exists:subcategories,id',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
                 'currency' => 'required|string',
-                'city' => 'required|string',
-                'country' => 'required|string',
+                'city' => 'nullable|string',
+                'country' => 'nullable|string',
                 //'specification_ids' => 'required|array',
                 'images' => 'required',
                 'images.*' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -167,6 +176,7 @@ class ProductController extends Controller
             if (!$user) {
                 return response()->json(['error' => 'User not authenticated'], 401);
             }
+            //$validatedData - status = 'Pending'
             $product = $user->products()->create($validatedData);
 
             $foundProfileImage = false;
@@ -236,18 +246,18 @@ class ProductController extends Controller
                 'description' => 'required|string',
                 'type' => 'required|in:product,grocery,request',
                 'key_specifications' => 'nullable|string',
-                'status' => 'required|in:Active,Inactive,Pending,Paused',
+                'status' => 'nullable|in:Active,Inactive,Pending,Paused',
                 'ratings' => 'nullable|numeric|min:0|max:5',
                 'product_quantity' => 'nullable|integer|min:0',
                 'sold' => 'nullable|integer|min:0',
                 'views' => 'nullable|integer|min:0',
                 'category_id' => 'required|exists:categories,id',
-		'subcategory_id' => 'required|exists:subcategories,id',
-                'latitude' => 'required|numeric',
-                'longitude' => 'required|numeric',
-                'currency' => 'required|string',
-                'city' => 'required|string',
-                'country' => 'required|string',
+		        'subcategory_id' => 'required|exists:subcategories,id',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
+                'currency' => 'nullable|string',
+                'city' => 'nullable|string',
+                'country' => 'nullable|string',
                 ]
             );
 
@@ -319,143 +329,21 @@ class ProductController extends Controller
      * @param  \App\Models\int $id
      * @return \Illuminate\Http\JsonResponse
      */
+     public function show($id)
+     {
+         // Retrieve the requested product
+         $product = Product::with(['images', 'displayImage', 'category', 'subcategory', 'user'])
+             ->findOrFail($id);
+ 
+         // Get similar products
+         $similarProducts = $this->similarProductService->getSimilarProducts($product);
+ 
+         // Return the product along with similar products
+         return response()->json(['product' => $product, 'similarProducts' => $similarProducts]);
+     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-    // Retrieve a single product with similar products
-    public function show($id) {
-        // Retrieve the requested product
-	$product = Product::with(['images', 'displayImage', 'category', 'subcategory', 'user'])
-	    ->findOrFail($id);
-
-        // Get the description of the requested product
-        $description = $product->description;
-
-        // Calculate TF-IDF vector for the requested product's description
-        $tfidfVector = $this->calculateTFIDF($description);
-
-        // Find similar products based on TF-IDF similarity
-	$similarProducts = Product::with(['images', 'displayImage', 'category', 'subcategory', 'user'])
-	    ->select('id', 'name', 'description', 'category_id', 'subcategory_id', 'display_image_id', 'user_id')
-	    ->where('id', '!=', $product->id)
-    	    ->where('category_id', $product->category_id)
-	    ->get();
-
-/*$similarProducts = Product::select('id', 'name', 'description', 'category_id')
-    ->where('id', '!=', $product->id)
-    ->where('category_id', $product->category_id)
-    ->get();*/
-
-        // Calculate TF-IDF vector for each similar product's description
-        foreach ($similarProducts as $similarProduct) {
-            $similarProduct->similarity = $this->calculateSimilarity($tfidfVector, $similarProduct->description);
-        }
-
-        // Sort similar products by similarity score in descending order
-        $similarProducts = $similarProducts->sortByDesc('similarity')->take(5);
-
-        // Return the product along with similar products
-        return response()->json(['product' => $product, 'similarProducts' => $similarProducts]);
-    }
-
-
-
-private function descriptionToTFIDFVector($description) {
-    // Split the text into individual terms (words)
-    $terms = explode(' ', $description);
-
-    // Count the frequency of each term in the text
-    $termFrequency = array_count_values($terms);
-
-    // Calculate the total number of terms in the text
-    $totalTerms = count($terms);
-
-    // Initialize the TF-IDF vector
-    $tfidfVector = [];
-
-    // Calculate TF-IDF for each term
-    foreach ($termFrequency as $term => $frequency) {
-        // Calculate Term Frequency (TF)
-        $tf = $frequency / $totalTerms;
-
-        // Calculate Inverse Document Frequency (IDF)
-        // For simplicity, let's assume IDF is constant for all terms
-        $idf = 1;
-
-        // Calculate TF-IDF
-        $tfidf = $tf * $idf;
-
-        // Store TF-IDF for the term
-        $tfidfVector[$term] = $tfidf;
-    }
-
-    return $tfidfVector;
-}
-
-
-
-private function calculateTFIDF($text) {
-    return $this->descriptionToTFIDFVector($text);
-}
-
-private function calculateSimilarity($tfidfVector1, $tfidfVector2) {
-    // Convert $tfidfVector2 to an array if it's a string
-    if (is_string($tfidfVector2)) {
-        $tfidfVector2 = $this->descriptionToTFIDFVector($tfidfVector2);
-    }
-
-    // Calculate dot product of the two vectors
-    $dotProduct = 0;
-    foreach ($tfidfVector1 as $term => $tfidf) {
-        if (isset($tfidfVector2[$term])) {
-            $dotProduct += $tfidf * $tfidfVector2[$term];
-        }
-    }
-
-    // Calculate magnitude of the first vector
-    $magnitude1 = sqrt(array_sum(array_map(function ($tfidf) {
-        return $tfidf * $tfidf;
-    }, $tfidfVector1)));
-
-    // Calculate magnitude of the second vector
-    $magnitude2 = sqrt(array_sum(array_map(function ($tfidf) {
-        return $tfidf * $tfidf;
-    }, $tfidfVector2)));
-
-    // Calculate cosine similarity
-    if ($magnitude1 > 0 && $magnitude2 > 0) {
-        $similarity = $dotProduct / ($magnitude1 * $magnitude2);
-    } else {
-        $similarity = 0; // Handle division by zero
-    }
-
-    return $similarity;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /*public function show(string $id)
+     /*public function show(string $id)
     {
         try {
             $product = Product::with(['user.businessDetails', 'images', 'displayImage', 'category', 'subcategory'])->findOrFail($id);
@@ -670,7 +558,7 @@ public function updateStatus(Request $request, $productId)
 
     /**
      * TODO: move to its controller, try catch
-     */
+     */ 
     public function filter(Request $request)
     {
         try {
@@ -684,113 +572,107 @@ public function updateStatus(Request $request, $productId)
             $minPrice = $request->input('minPrice');
             $maxPrice = $request->input('maxPrice');
             $type = $request->input('type');
+            $status = $request->input('status');
             $sortBy = $request->input('sortby', 'created_at');
-
-	    $query = Product::with(['images', 'displayImage', 'category'])
-		   	->where('deleted', 0);
-
+    
+            $query = Product::with(['images', 'displayImage', 'category', 'user'])
+                ->where('deleted', 0);
+    
             if ($userCountry) {
                 $query->where('country', $userCountry);
             }
-
+    
             if ($searchTerm) {
                 $query->where('name', 'like', '%' . $searchTerm . '%');
             }
-
+    
             if ($category_id) {
                 $query->where('category_id', $category_id);
             }
-
+    
             if ($subcategory_id) {
                 $query->where('subcategory_id', $subcategory_id);
             }
-
+    
             if ($minPrice) {
                 $query->where('price', '>=', $minPrice);
             }
-
+            
             if ($maxPrice) {
                 $query->where('price', '<=', $maxPrice);
             }
-
+            
             if ($type) {
                 $query->where('type', $type);
             }
-
-            // Sorting logic
+    
+            if ($status) {
+                $query->where('status', $status);
+            }
+    
             if ($request->input('sort')) {
                 $value = $request->input('sort');
                 if ($value == 'price_lowest') {
                     $query->orderBy('price', 'asc');
                 } elseif ($value == 'price_highest') {
                     $query->orderBy('price', 'desc');
-                } elseif ($value == 'ratings' || $value == 'views' || $value == 'created_at') {
+                } elseif (in_array($value, ['ratings', 'views', 'created_at'])) {
                     $query->orderBy($value, 'desc');
                 }
             } else {
-                $query->orderBy($sortBy, 'desc'); // Default sorting if not provided in the request
+                $query->orderBy($sortBy, 'desc');
             }
-
-            $products = $query->paginate(config('constants.PAGINATION_LIMIT'));
-
+    
+            $products = $query->get();
+    
             if ($userLat && $userLng && $distance) {
-                $filteredProducts = $products->filter(
-                    function ($product) use ($userLat, $userLng, $distance, $userCountry) {
-                        return $product->country === $userCountry &&
-                        $this->calculateDistance($userLat, $userLng, $product->latitude, $product->longitude) <= $distance;
-                    }
-                );
-
+                $filteredProducts = $products->filter(function ($product) use ($userLat, $userLng, $distance) {
+                    return $this->computeDistance($userLat, $userLng, $product->latitude, $product->longitude) <= $distance;
+                });
+    
                 $filteredProducts = $filteredProducts->values(); // Reindex the array after filtering
-
-                // Create a new Paginator instance with the filtered products
+    
+                // Paginate the filtered products
+                $currentPage = LengthAwarePaginator::resolveCurrentPage();
+                $perPage = config('constants.PAGINATION_LIMIT', 15);
+                $currentPageItems = $filteredProducts->slice(($currentPage - 1) * $perPage, $perPage)->all();
+    
                 $products = new LengthAwarePaginator(
-                    $filteredProducts,
-                    $products->total(),
-                    $products->perPage(),
-                    $products->currentPage(),
+                    $currentPageItems,
+                    $filteredProducts->count(),
+                    $perPage,
+                    $currentPage,
                     ['path' => $request->url(), 'query' => $request->query()]
                 );
+            } else {
+                $products = $query->paginate(config('constants.PAGINATION_LIMIT'));
             }
-
-            /*
-            if ($userLat && $userLng && $distance) {
-            $filteredProducts = $products->filter(function ($product) use ($userLat, $userLng, $distance, $userCountry) {
-                return $product->country === $userCountry &&
-                    $this->calculateDistance($userLat, $userLng, $product->latitude, $product->longitude) <= $distance;
-            });
-
-            $products = $filteredProducts->values(); // Reindex the array after filtering
-            }
-            */
-
+    
             return response()->json($products);
         } catch (\Exception $e) {
             Log::error('Error fetching products: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-
-
-
-    private function calculateHaversine($latColumn, $lngColumn, $userLat, $userLng)
+    
+    private function computeDistance($userLat, $userLng, $productLat, $productLng)
     {
-        $earthRadius = 6371; // in kilometers
-
-        $latDiff = deg2rad($latColumn - $userLat);
-        $lngDiff = deg2rad($lngColumn - $userLng);
-
+        $earthRadius = 6371; // Radius of the Earth in kilometers
+    
+        $latDiff = deg2rad($productLat - $userLat);
+        $lngDiff = deg2rad($productLng - $userLng);
+    
         $a = sin($latDiff / 2) * sin($latDiff / 2) +
-         cos(deg2rad($userLat)) * cos(deg2rad($latColumn)) *
-         sin($lngDiff / 2) * sin($lngDiff / 2);
-
+            cos(deg2rad($userLat)) * cos(deg2rad($productLat)) *
+            sin($lngDiff / 2) * sin($lngDiff / 2);
+    
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
+    
         $distance = $earthRadius * $c;
-
+    
         return $distance;
     }
-
+    
 
     public function getProductsByUser()
     {

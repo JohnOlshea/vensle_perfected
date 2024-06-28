@@ -3,28 +3,103 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Services\SimilarProductService; 
 use App\Models\User;
 use App\Models\Cart;
 
 class CartController extends Controller
 {
+    protected $similarProductService;
 
-    public function index()
+    public function __construct(SimilarProductService $similarProductService)
     {
-	    $user = auth()->user();
-	    $cartItems = $user->carts()->with('product.displayImage')->get();
-
-	    $responseData = [];
-	    foreach ($cartItems as $item) {
-		$product = $item->product;
-		if ($product) {
-		    $product->quantity = $item->quantity;
-		    $responseData[] = $item;
-		}
-	    }
-
-	    return response()->json(['cart' => $responseData]);	    
+        $this->similarProductService = $similarProductService;
     }
+
+    public function index() {
+        $user = auth()->user();
+        $cartItems = $user->carts()->with('product.displayImage')->get();
+        $productsInCart = [];
+        
+        foreach ($cartItems as $item) {
+            $product = $item->product;
+            if ($product) {
+              $productsInCart[] = $product;  // Add only the product data
+            }
+        }
+      
+        // Initialize an array to store similar products for all cart items
+        $allSimilarProducts = [];
+        
+        foreach ($cartItems as $cartItem) {
+            // Get the product associated with the cart item
+            $product = $cartItem->product;
+        
+            if ($product) {
+                // Attach quantity to the product from the cart item
+                $product->quantity = $cartItem->quantity;
+        
+                // Get similar products for the current cart item's product
+                $similarProducts = $this->similarProductService->getSimilarProducts($product);
+        
+                // Merge these similar products into the all similar products array
+                $allSimilarProducts = array_merge($allSimilarProducts, $similarProducts);
+            }
+        }      
+
+        // Remove duplicate similar products (if any)
+        $allSimilarProducts = collect($allSimilarProducts)->unique('id')->values()->all();
+    
+        // Shuffle the array of similar products
+        shuffle($allSimilarProducts);
+    
+        // Limit to 4 random similar products
+        $randomSimilarProducts = array_slice($allSimilarProducts, 0, 4);
+    
+        // Return the cart products along with 3 random similar products
+        return response()->json(['cart' => $productsInCart, 'similarProducts' => $randomSimilarProducts]);
+    } 
+
+    // No similar product shuffle
+    // public function index()
+    // {
+    //     // Fetch cart items for the authenticated user
+    //     $user = auth()->user();
+    //     $cartItems = $user->carts()->with('product.displayImage')->get();
+    
+    //     // Initialize an array to store similar products for all cart items
+    //     $allSimilarProducts = [];
+    
+    //     foreach ($cartItems as $cartItem) {
+    //         // Get the product associated with the cart item
+    //         $product = $cartItem->product;
+    
+    //         if ($product) {
+    //             // Attach quantity to the product from the cart item
+    //             $product->quantity = $cartItem->quantity;
+    
+    //             // Get similar products for the current cart item's product
+    //             $similarProducts = $this->similarProductService->getSimilarProducts($product);
+    
+    //             // Sort similar products by similarity score in descending order
+    //             usort($similarProducts, function ($a, $b) {
+    //                 return $b->similarity <=> $a->similarity;
+    //             });
+    
+    //             // Take the top 3 most similar products
+    //             $similarProducts = array_slice($similarProducts, 0, 3);
+    
+    //             // Merge these similar products into the all similar products array
+    //             $allSimilarProducts = array_merge($allSimilarProducts, $similarProducts);
+    //         }
+    //     }
+    
+    //     // Remove duplicate similar products (if any)
+    //     $allSimilarProducts = collect($allSimilarProducts)->unique('id')->values()->all();
+    
+    //     // Return the cart products along with similar products limited to 3
+    //     return response()->json(['cartProducts' => $cartItems, 'similarProducts' => array_slice($allSimilarProducts, 0, 3)]);
+    // }
 
     public function mergeCart(Request $request)
     {
