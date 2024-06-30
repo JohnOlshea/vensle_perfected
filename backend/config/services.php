@@ -38,9 +38,9 @@ return [
     ],
 
     'facebook' => [
-        'client_id' => '685180687065499',
-        'client_secret' => '24c8b99923a8c8a9231ac69e939b75c1',
-        'redirect' => 'https://nominet.vensle.com/backend/api/v1/auth/facebook/callback',
+        'client_id' => env('FACEBOOK_CLIENT_ID'),
+        'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
+        'redirect' => env('FACEBOOK_REDIRECT'),
     ],
         //'redirect' => 'https://nominet.vensle.com/social/facebook/callback',
 
